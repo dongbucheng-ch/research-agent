@@ -1,0 +1,2048 @@
+{
+  "sources": [
+    {
+      "key": "google-news-search",
+      "name": "Google News 检索(按关键词)",
+      "channel": "google_news",
+      "collector_kind": "search",
+      "url": "https://news.google.com/rss/search",
+      "config": {
+        "hl": "zh-CN",
+        "gl": "CN",
+        "ceid": "CN:zh-Hans"
+      },
+      "tier": "A",
+      "description": "免鉴权的新闻检索端点,按研究方向关键词拉近 N 小时新闻(engine=news)",
+      "category": "community"
+    },
+    {
+      "key": "bing-news-search",
+      "name": "Bing News 检索(按关键词)",
+      "channel": "bing_news",
+      "collector_kind": "search",
+      "url": "https://www.bing.com/news/search",
+      "config": {
+        "setlang": "zh-hans"
+      },
+      "tier": "A",
+      "description": "免鉴权新闻检索端点(engine=news),国内网络可用,作为 Google News 的备用检索入口",
+      "category": "community"
+    },
+    {
+      "key": "hackernews-top",
+      "name": "Hacker News 头条",
+      "channel": "hackernews",
+      "collector_kind": "search",
+      "url": "https://hacker-news.firebaseio.com/v0/topstories.json",
+      "config": {
+        "fetch_top_stories": 30,
+        "min_score": 100
+      },
+      "tier": "A",
+      "description": "HN 官方 Firebase API,按分数与关键词过滤(engine=news)",
+      "category": "community"
+    },
+    {
+      "key": "github-repo-search",
+      "name": "GitHub 仓库搜索(按关键词)",
+      "channel": "repo",
+      "collector_kind": "search",
+      "url": "https://api.github.com/search/repositories",
+      "config": {
+        "sorts": [
+          "updated",
+          "stars"
+        ],
+        "max_age_days": 180,
+        "per_page": 25,
+        "min_stars": 30
+      },
+      "tier": "A",
+      "description": "两路口径合并:「最新」(按更新时间)+「近期最热」(近 180 天创建、按星数);热度按日均新增星计算;建议配 RA_GITHUB_TOKEN(engine=github)",
+      "category": "community"
+    },
+    {
+      "key": "github-skills",
+      "name": "GitHub Skills(topic:claude-skills)",
+      "channel": "skill",
+      "collector_kind": "search",
+      "url": "https://api.github.com/search/repositories",
+      "config": {
+        "topic": "claude-skills",
+        "sorts": [
+          "updated",
+          "stars"
+        ],
+        "max_age_days": 365,
+        "per_page": 25
+      },
+      "tier": "B",
+      "description": "按 topic 检索 Agent/Claude Skills 技能包资源(engine=github)",
+      "category": "community"
+    },
+    {
+      "key": "hf-models",
+      "name": "HuggingFace 模型(按关键词)",
+      "channel": "model",
+      "collector_kind": "search",
+      "url": "https://huggingface.co/api/models",
+      "config": {
+        "sort": "trendingScore",
+        "per_keyword_limit": 20
+      },
+      "tier": "A",
+      "description": "免鉴权模型检索,热度用下载量/点赞(engine=github)",
+      "category": "community"
+    },
+    {
+      "key": "arxiv-ai",
+      "name": "arXiv cs.AI/cs.CL/cs.LG",
+      "channel": "arxiv",
+      "collector_kind": "search",
+      "url": "https://export.arxiv.org/api/query",
+      "config": {
+        "categories": [
+          "cs.AI",
+          "cs.CL",
+          "cs.LG"
+        ]
+      },
+      "tier": "A",
+      "description": "按关键词检索 arXiv 最新提交,论文主源",
+      "category": "paper"
+    },
+    {
+      "key": "github-trending",
+      "name": "GitHub Trending",
+      "channel": "github",
+      "collector_kind": "trend",
+      "url": "https://github.com/trending",
+      "config": {
+        "since": "daily"
+      },
+      "tier": "A",
+      "description": "每日趋势仓库,命中关键词后收录",
+      "category": "community"
+    },
+    {
+      "key": "openai-news",
+      "name": "OpenAI News",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://openai.com/news/rss.xml",
+      "config": {
+        "fetch_full_text": true
+      },
+      "tier": "A",
+      "description": "OpenAI 官方发布",
+      "category": "lab"
+    },
+    {
+      "key": "deepmind-blog",
+      "name": "Google DeepMind Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://deepmind.google/blog/rss.xml",
+      "config": {
+        "fetch_full_text": true
+      },
+      "tier": "A",
+      "description": "DeepMind 官方博客",
+      "category": "lab"
+    },
+    {
+      "key": "meta-ai",
+      "name": "Meta AI Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://ai.meta.com/blog/rss/",
+      "config": {
+        "fetch_full_text": true
+      },
+      "tier": "A",
+      "description": "Meta AI 官方博客",
+      "category": "lab"
+    },
+    {
+      "key": "huggingface-blog",
+      "name": "Hugging Face Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://huggingface.co/blog/feed.xml",
+      "config": {
+        "fetch_full_text": true
+      },
+      "tier": "A",
+      "description": "Hugging Face 官方博客",
+      "category": "lab"
+    },
+    {
+      "key": "jiqizhixin",
+      "name": "机器之心",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.jiqizhixin.com/rss",
+      "config": {},
+      "tier": "A",
+      "description": "中文 AI 媒体",
+      "category": "cn"
+    },
+    {
+      "key": "qbitai",
+      "name": "量子位",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.qbitai.com/feed",
+      "config": {},
+      "tier": "A",
+      "description": "中文 AI 媒体",
+      "category": "cn"
+    },
+    {
+      "key": "hn-frontpage",
+      "name": "Hacker News",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://hnrss.org/frontpage?points=100",
+      "config": {},
+      "tier": "B",
+      "description": "HN 首页(100+ 分)",
+      "category": "community"
+    },
+    {
+      "key": "techcrunch-ai",
+      "name": "TechCrunch AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "config": {},
+      "tier": "B",
+      "description": "英文科技媒体 AI 频道",
+      "category": "news"
+    },
+    {
+      "key": "the-verge-ai",
+      "name": "The Verge AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+      "config": {},
+      "tier": "B",
+      "description": "英文科技媒体 AI 频道",
+      "category": "news"
+    },
+    {
+      "key": "venturebeat-ai",
+      "name": "VentureBeat AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://venturebeat.com/category/ai/feed/",
+      "config": {},
+      "tier": "B",
+      "description": "企业 AI 与产业动态",
+      "category": "news"
+    },
+    {
+      "key": "mit-tech-review",
+      "name": "MIT Technology Review",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.technologyreview.com/feed/",
+      "config": {},
+      "tier": "B",
+      "description": "深度科技报道",
+      "category": "news"
+    },
+    {
+      "key": "the-batch",
+      "name": "The Batch (DeepLearning.AI)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.deeplearning.ai/the-batch/feed/",
+      "config": {},
+      "tier": "B",
+      "description": "吴恩达团队周报",
+      "category": "blog"
+    },
+    {
+      "key": "import-ai",
+      "name": "Import AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://importai.substack.com/feed",
+      "config": {},
+      "tier": "B",
+      "description": "Jack Clark 的 AI 政策与研究通讯",
+      "category": "blog"
+    },
+    {
+      "key": "simon-willison",
+      "name": "Simon Willison's Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://simonwillison.net/atom/everything/",
+      "config": {},
+      "tier": "B",
+      "description": "LLM 工程实践高质量博客",
+      "category": "blog"
+    },
+    {
+      "key": "latent-space",
+      "name": "Latent Space",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.latent.space/feed",
+      "config": {},
+      "tier": "B",
+      "description": "AI 工程播客/通讯",
+      "category": "blog"
+    },
+    {
+      "key": "github-blog",
+      "name": "GitHub Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://github.blog/feed/",
+      "config": {},
+      "tier": "B",
+      "description": "GitHub 官方博客",
+      "category": "community"
+    },
+    {
+      "key": "36kr",
+      "name": "36氪",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://36kr.com/feed",
+      "config": {},
+      "tier": "B",
+      "description": "中文商业科技媒体",
+      "category": "cn"
+    },
+    {
+      "key": "infoq-cn",
+      "name": "InfoQ 中文",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.infoq.cn/feed",
+      "config": {},
+      "tier": "C",
+      "description": "中文开发者资讯",
+      "category": "cn"
+    },
+    {
+      "key": "google-research",
+      "name": "Google Research Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://research.google/blog/rss/",
+      "config": {
+        "fetch_full_text": true
+      },
+      "tier": "A",
+      "description": "Google Research 官方博客",
+      "category": "lab"
+    },
+    {
+      "key": "anthropic-news",
+      "name": "Anthropic News",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.anthropic.com/news/rss.xml",
+      "config": {
+        "fetch_full_text": true
+      },
+      "tier": "A",
+      "description": "Anthropic 官方动态(如 RSS 失效请暂停)",
+      "category": "lab"
+    },
+    {
+      "key": "arxiv-cv",
+      "name": "arXiv cs.CV(视觉/多模态)",
+      "channel": "arxiv",
+      "collector_kind": "search",
+      "url": "https://export.arxiv.org/api/query",
+      "config": {
+        "categories": [
+          "cs.CV"
+        ]
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "按关键词检索 arXiv 计算机视觉最新提交"
+    },
+    {
+      "key": "arxiv-agent",
+      "name": "arXiv cs.MA/cs.AI(智能体)",
+      "channel": "arxiv",
+      "collector_kind": "search",
+      "url": "https://export.arxiv.org/api/query",
+      "config": {
+        "categories": [
+          "cs.MA",
+          "cs.AI"
+        ]
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "多智能体与通用 AI,Agent 方向主源"
+    },
+    {
+      "key": "arxiv-nlp",
+      "name": "arXiv cs.CL(自然语言)",
+      "channel": "arxiv",
+      "collector_kind": "search",
+      "url": "https://export.arxiv.org/api/query",
+      "config": {
+        "categories": [
+          "cs.CL"
+        ]
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "自然语言处理最新提交"
+    },
+    {
+      "key": "arxiv-se",
+      "name": "arXiv cs.SE(软件工程)",
+      "channel": "arxiv",
+      "collector_kind": "search",
+      "url": "https://export.arxiv.org/api/query",
+      "config": {
+        "categories": [
+          "cs.SE"
+        ]
+      },
+      "tier": "B",
+      "category": "paper",
+      "description": "AI4SE / 代码智能方向"
+    },
+    {
+      "key": "arxiv-bio",
+      "name": "arXiv q-bio(生物科技)",
+      "channel": "arxiv",
+      "collector_kind": "search",
+      "url": "https://export.arxiv.org/api/query",
+      "config": {
+        "categories": [
+          "q-bio.BM",
+          "q-bio.GN",
+          "q-bio.QM"
+        ]
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "生物分子 / 基因组 / 定量生物,生物科技主源"
+    },
+    {
+      "key": "arxiv-stat",
+      "name": "arXiv stat.ML(机器学习理论)",
+      "channel": "arxiv",
+      "collector_kind": "search",
+      "url": "https://export.arxiv.org/api/query",
+      "config": {
+        "categories": [
+          "stat.ML"
+        ]
+      },
+      "tier": "B",
+      "category": "paper",
+      "description": "机器学习方法与理论"
+    },
+    {
+      "key": "microsoft-research",
+      "name": "Microsoft Research Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.microsoft.com/en-us/research/feed/",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "微软研究院博客(已实测可用)"
+    },
+    {
+      "key": "apple-ml",
+      "name": "Apple Machine Learning",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://machinelearning.apple.com/rss.xml",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "Apple 机器学习研究(已实测可用)"
+    },
+    {
+      "key": "nvidia-blog",
+      "name": "NVIDIA Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://blogs.nvidia.com/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "NVIDIA 官方博客(模型/推理/算力)"
+    },
+    {
+      "key": "aws-ml-blog",
+      "name": "AWS Machine Learning Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://aws.amazon.com/blogs/machine-learning/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "AWS 机器学习工程实践"
+    },
+    {
+      "key": "qwen-blog",
+      "name": "Qwen 官方博客",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://qwenlm.github.io/blog/index.xml",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "通义千问团队发布"
+    },
+    {
+      "key": "google-ai-blog",
+      "name": "Google AI Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://blog.google/technology/ai/rss/",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "Google AI 官方发布"
+    },
+    {
+      "key": "lilian-weng",
+      "name": "Lilian Weng",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://lilianweng.github.io/index.xml",
+      "config": {},
+      "tier": "A",
+      "category": "blog",
+      "description": "LLM/Agent 综述级博客(已实测可用)"
+    },
+    {
+      "key": "sebastian-raschka",
+      "name": "Sebastian Raschka",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://magazine.sebastianraschka.com/feed",
+      "config": {},
+      "tier": "A",
+      "category": "blog",
+      "description": "LLM 训练与架构深度文章(已实测可用)"
+    },
+    {
+      "key": "eugene-yan",
+      "name": "Eugene Yan",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://eugeneyan.com/rss/",
+      "config": {},
+      "tier": "B",
+      "category": "blog",
+      "description": "LLM 系统与推荐系统实践"
+    },
+    {
+      "key": "interconnects",
+      "name": "Interconnects (Nathan Lambert)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.interconnects.ai/feed",
+      "config": {},
+      "tier": "B",
+      "category": "blog",
+      "description": "开源模型与对齐政策评论"
+    },
+    {
+      "key": "the-gradient",
+      "name": "The Gradient",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://thegradient.pub/rss/",
+      "config": {},
+      "tier": "B",
+      "category": "blog",
+      "description": "AI 研究评论"
+    },
+    {
+      "key": "chip-huyen",
+      "name": "Chip Huyen",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://huyenchip.com/feed.xml",
+      "config": {},
+      "tier": "B",
+      "category": "blog",
+      "description": "ML 系统工程与生产实践"
+    },
+    {
+      "key": "ieee-spectrum-ai",
+      "name": "IEEE Spectrum AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "IEEE 视角(已实测可用)"
+    },
+    {
+      "key": "techmeme",
+      "name": "Techmeme",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.techmeme.com/feed.xml",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "科技新闻聚合(已实测可用)"
+    },
+    {
+      "key": "wired-ai",
+      "name": "Wired AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.wired.com/feed/tag/ai/latest/rss",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "Wired AI 频道(已实测可用)"
+    },
+    {
+      "key": "cnbc-tech",
+      "name": "CNBC Tech",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "CNBC 科技(已实测可用)"
+    },
+    {
+      "key": "ars-technica",
+      "name": "Ars Technica",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://feeds.arstechnica.com/arstechnica/index",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "深度科技报道"
+    },
+    {
+      "key": "solidot",
+      "name": "Solidot 奇客资讯",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.solidot.org/index.rss",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "中文科技新闻(已实测可用)"
+    },
+    {
+      "key": "ifanr",
+      "name": "爱范儿",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.ifanr.com/feed",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "中文科技媒体(已实测可用)"
+    },
+    {
+      "key": "tmtpost",
+      "name": "钛媒体",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.tmtpost.com/rss.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "中文商业科技(已实测可用)"
+    },
+    {
+      "key": "oschina",
+      "name": "开源中国",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.oschina.net/news/rss",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "开源与工程资讯(已实测可用)"
+    },
+    {
+      "key": "huxiu",
+      "name": "虎嗅",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.huxiu.com/rss/0.xml",
+      "config": {},
+      "tier": "C",
+      "category": "cn",
+      "description": "站点可能限流/超时,建议先「测试」"
+    },
+    {
+      "key": "biorxiv",
+      "name": "bioRxiv 预印本",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://connect.biorxiv.org/biorxiv_xml.php?subject=all",
+      "config": {},
+      "tier": "A",
+      "category": "bio",
+      "description": "生物预印本(已实测可用)"
+    },
+    {
+      "key": "nature-biotech",
+      "name": "Nature Biotechnology",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.nature.com/nbt.rss",
+      "config": {},
+      "tier": "A",
+      "category": "bio",
+      "description": "Nature 子刊(已实测可用)"
+    },
+    {
+      "key": "statnews",
+      "name": "STAT News",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.statnews.com/feed/",
+      "config": {},
+      "tier": "A",
+      "category": "bio",
+      "description": "生物医药产业新闻(已实测可用)"
+    },
+    {
+      "key": "gen-news",
+      "name": "GEN News",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.genengnews.com/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "bio",
+      "description": "Genetic Engineering & Biotechnology News(已实测可用)"
+    },
+    {
+      "key": "lobsters",
+      "name": "Lobsters",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://lobste.rs/rss",
+      "config": {},
+      "tier": "B",
+      "category": "community",
+      "description": "高质量技术社区(已实测可用)"
+    },
+    {
+      "key": "github-new-hot",
+      "name": "GitHub 高星新库(近 30 天)",
+      "channel": "repo",
+      "collector_kind": "search",
+      "url": "https://api.github.com/search/repositories",
+      "config": {
+        "sorts": [
+          "stars"
+        ],
+        "max_age_days": 30,
+        "min_stars": 200,
+        "per_page": 25
+      },
+      "tier": "A",
+      "category": "community",
+      "description": "近 30 天创建、星数 >200 的新项目按星数排序;建议配 RA_GITHUB_TOKEN"
+    },
+    {
+      "key": "github-topic-agents",
+      "name": "GitHub Agent 主题仓库",
+      "channel": "repo",
+      "collector_kind": "search",
+      "url": "https://api.github.com/search/repositories",
+      "config": {
+        "topic": "ai-agents",
+        "min_stars": 200,
+        "sorts": [
+          "updated",
+          "stars"
+        ],
+        "max_age_days": 180,
+        "per_page": 25
+      },
+      "tier": "B",
+      "category": "community",
+      "description": "topic:ai-agents 的活跃仓库;无关键词时作为兜底查询"
+    },
+    {
+      "key": "nature-journal",
+      "name": "Nature",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.nature.com/nature.rss",
+      "config": {},
+      "tier": "A",
+      "category": "paper",
+      "description": "综合顶刊(Nature 主刊,已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "plos-one",
+      "name": "PLOS One",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://journals.plos.org/plosone/feed/atom",
+      "config": {},
+      "tier": "A",
+      "category": "paper",
+      "description": "开放获取综合期刊(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "elife",
+      "name": "eLife",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://elifesciences.org/rss/recent.xml",
+      "config": {},
+      "tier": "A",
+      "category": "paper",
+      "description": "生命科学开放期刊(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "mit-news-ai",
+      "name": "MIT News AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://news.mit.edu/rss/topic/artificial-intelligence2",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "MIT 官方 AI 研究动态(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "bair-berkeley",
+      "name": "BAIR 伯克利 AI 研究博客",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://bair.berkeley.edu/blog/feed.xml",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "Berkeley AI Research 官方博客(更新慢但在产)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "amazon-science",
+      "name": "Amazon Science",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.amazon.science/index.rss",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "Amazon 科学研究院博客(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "quanta-magazine",
+      "name": "Quanta Magazine",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.quantamagazine.org/feed/",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "数学/物理/生命科学深度报道(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "scientific-american",
+      "name": "Scientific American",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "http://rss.sciam.com/ScientificAmerican-Global",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "科学美国人(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "sciencedaily-ai",
+      "name": "ScienceDaily AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "AI 研究进展快讯(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "sciencedaily-top",
+      "name": "ScienceDaily 全站科学",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.sciencedaily.com/rss/all.xml",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "全科前沿快讯(量大,已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "phys-org",
+      "name": "Phys.org",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://phys.org/rss-feed/",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "物理/科技研究新闻(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "wired-science",
+      "name": "Wired Science",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.wired.com/feed/category/science/latest/rss",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "Wired 科学线(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "nyt-science",
+      "name": "NYT Science",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/Science.xml",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "纽约时报科学版(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "bbc-science",
+      "name": "BBC Science",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "BBC 科学与环境(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "guardian-space",
+      "name": "The Guardian Space",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.theguardian.com/science/space/rss",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "卫报太空/科学线(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "nasa-news",
+      "name": "NASA",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.nasa.gov/news-release/feed/",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "NASA 官方发布(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "engadget",
+      "name": "Engadget",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.engadget.com/rss.xml",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "消费科技媒体(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "cnet-news",
+      "name": "CNET",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.cnet.com/rss/news/",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "消费科技媒体(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "theregister",
+      "name": "The Register",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.theregister.com/headlines.rss",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "企业级科技媒体(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "popular-science",
+      "name": "Popular Science",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.popsci.com/arcio/rss/",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "大众科普媒体(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "google-cloud-blog",
+      "name": "Google Cloud Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://cloudblog.withgoogle.com/rss/",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "Google Cloud 官方(产业落地,已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "meta-engineering",
+      "name": "Engineering at Meta",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://engineering.fb.com/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "Meta 工程博客(产业落地,已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "aws-news-blog",
+      "name": "AWS News Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://aws.amazon.com/blogs/aws/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "AWS 官方发布(产业落地,已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "slashdot",
+      "name": "Slashdot",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rss.slashdot.org/Slashdot/slashdotMain",
+      "config": {},
+      "tier": "B",
+      "category": "community",
+      "description": "老牌科技社区聚合(已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "xinzhiyuan",
+      "name": "新智元",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/ede30346413ea70dbef5d485ea5cbb95cca446e7.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "中文 AI 头部媒体(经 wechat2rss 转 RSS,第三方服务)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "jizhi-club",
+      "name": "集智俱乐部",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/8540570d27c0bfe0a219173cf1ace83ae79445cb.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "复杂系统/前沿科学社区(第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "ilovecv",
+      "name": "我爱计算机视觉",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/b81ffcfff1107b5265cd7e39de610dc7ca72caf4.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "中文 CV/多模态资讯(第三方 wechat2rss,已实测可用)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "tencent-tech",
+      "name": "腾讯技术工程",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/9685937b45fe9c7a526dbc32e4f24ba879a65b9a.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "腾讯工程实践(第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "bytedance-tech",
+      "name": "字节跳动技术团队",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/4025ea55575daf8bfd8227e68b28d9638b073267.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "字节工程实践(第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "meituan-tech",
+      "name": "美团技术团队",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/eb4d04149424a874693a51c6fdda0dba8673f5e4.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "美团工程实践(第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "bilibili-tech",
+      "name": "哔哩哔哩技术",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/434235d4815fdb8447ff3127fc053ceb8b3aada6.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "B 站工程实践(更新较慢,第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "qwen-wechat",
+      "name": "千问AI平台",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/c74ed6db00cfbf16f2a048a165b4453f982681f0.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "通义千问官方公众号(第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "mittr-china-hot",
+      "name": "MIT 科技评论中文热榜",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rsshub.bestblogs.dev/mittrchina/hot",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "MIT TR 中文周热榜(RSSHub 第三方实例)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "chaping-pin",
+      "name": "差评X.PIN",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/8d839de8dd3290a1f1be7a94423cccb30c1b087d.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "中文科技媒体(第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "xiaozhong-app",
+      "name": "小众软件",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.xlab.app/feed/3261d5a75cfef238650a2cabd4bbf99669c2f334.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "软件/工具资讯(第三方 wechat2rss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "gh-openai-codex-releases",
+      "name": "OpenAI Codex Releases",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://github.com/openai/codex/releases.atom",
+      "config": {},
+      "tier": "A",
+      "category": "community",
+      "description": "Codex 版本发布(GitHub Atom,产业落地信号)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "gh-claude-code-releases",
+      "name": "Claude Code Releases",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://github.com/anthropics/claude-code/releases.atom",
+      "config": {},
+      "tier": "A",
+      "category": "community",
+      "description": "Claude Code 版本发布(GitHub Atom)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "gh-gemini-cli-releases",
+      "name": "Gemini CLI Releases",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://github.com/google-gemini/gemini-cli/releases.atom",
+      "config": {},
+      "tier": "A",
+      "category": "community",
+      "description": "Gemini CLI 版本发布(GitHub Atom)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "gh-langchain-releases",
+      "name": "LangChain Releases",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://github.com/langchain-ai/langchain/releases.atom",
+      "config": {},
+      "tier": "B",
+      "category": "community",
+      "description": "LangChain 版本发布(GitHub Atom)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "hn-ai-newest",
+      "name": "HN 最新 AI 讨论",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://hnrss.org/newest?q=AI",
+      "config": {},
+      "tier": "B",
+      "category": "community",
+      "description": "Hacker News 实时 AI 关键词流(第三方 hnrss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "hn-llm-newest",
+      "name": "HN 最新 LLM 讨论",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://hnrss.org/newest?q=LLM",
+      "config": {},
+      "tier": "B",
+      "category": "community",
+      "description": "Hacker News 实时 LLM 关键词流(第三方 hnrss)(GitHub 清单实测通过 2026-10-08)"
+    },
+    {
+      "key": "hf-daily-papers",
+      "name": "HuggingFace Daily Papers",
+      "channel": "hf_papers",
+      "collector_kind": "search",
+      "url": "https://huggingface.co/api/daily_papers",
+      "config": {},
+      "tier": "A",
+      "category": "paper",
+      "description": "社区每日投票精选 arXiv 论文(带 upvotes 热度,免鉴权 API;方向由三维打分过滤,已实测可用)"
+    },
+    {
+      "key": "rss.arxiv.org-rss-cs.ai",
+      "name": "arXiv cs.AI 官方 RSS",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rss.arxiv.org/rss/cs.AI",
+      "config": {
+        "object_type": "paper"
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "arXiv cs.AI 每日更新全量列表(RSS,免鉴权,避开 API 429) | 候选校验 857 条"
+    },
+    {
+      "key": "export.arxiv.org-rss-cs.cl",
+      "name": "arXiv cs.CL 官方 RSS",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://export.arxiv.org/rss/cs.CL",
+      "config": {
+        "object_type": "paper"
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "arXiv cs.CL 每日更新全量列表(RSS) | 候选校验 224 条"
+    },
+    {
+      "key": "export.arxiv.org-rss-cs.lg",
+      "name": "arXiv cs.LG 官方 RSS",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://export.arxiv.org/rss/cs.LG",
+      "config": {
+        "object_type": "paper"
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "arXiv cs.LG 每日更新全量列表(RSS) | 候选校验 526 条"
+    },
+    {
+      "key": "export.arxiv.org-rss-cs.cv",
+      "name": "arXiv cs.CV 官方 RSS",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://export.arxiv.org/rss/cs.CV",
+      "config": {
+        "object_type": "paper"
+      },
+      "tier": "A",
+      "category": "paper",
+      "description": "arXiv cs.CV 每日更新全量列表(RSS) | 候选校验 247 条"
+    },
+    {
+      "key": "arxiv.org-rss-stat.ml",
+      "name": "arXiv stat.ML 官方 RSS",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "http://arxiv.org/rss/stat.ML",
+      "config": {
+        "object_type": "paper"
+      },
+      "tier": "B",
+      "category": "paper",
+      "description": "arXiv stat.ML 每日更新全量列表(RSS) | 候选校验 86 条"
+    },
+    {
+      "key": "deepmind.com-blog-feed-basic",
+      "name": "Google DeepMind News",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://deepmind.com/blog/feed/basic/",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "DeepMind 官方新闻/研究博客 | 候选校验 100 条"
+    },
+    {
+      "key": "rsshub.bestblogs.dev-anthropic-news",
+      "name": "Anthropic News",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rsshub.bestblogs.dev/anthropic/news",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "Anthropic 官方新闻(RSSHub 转发) | 候选校验 10 条"
+    },
+    {
+      "key": "feeds.feedburner.com-nvidiablog",
+      "name": "NVIDIA AI Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "http://feeds.feedburner.com/nvidiablog",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "NVIDIA 官方 AI 博客 | 候选校验 18 条"
+    },
+    {
+      "key": "aws.amazon.com-blogs-amazon-ai-feed",
+      "name": "AWS Machine Learning Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://aws.amazon.com/blogs/amazon-ai/feed/",
+      "config": {},
+      "tier": "A",
+      "category": "lab",
+      "description": "AWS 机器学习官方博客(产业落地) | 候选校验 20 条"
+    },
+    {
+      "key": "blog.google-rss",
+      "name": "Google Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://blog.google/rss",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "Google 官方博客(Gemini/搜索/AI 发布) | 候选校验 20 条"
+    },
+    {
+      "key": "azure.microsoft.com-en-us-blog-feed",
+      "name": "Microsoft Azure Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://azure.microsoft.com/en-us/blog/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "Azure 官方博客(AI 云服务与落地) | 候选校验 10 条"
+    },
+    {
+      "key": "www.databricks.com-feed",
+      "name": "Databricks Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.databricks.com/feed",
+      "config": {},
+      "tier": "B",
+      "category": "lab",
+      "description": "Databricks 官方博客(数据+AI 工程) | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-1709da4f538d4ce4fb6d7a8ba1a5a1",
+      "name": "DeepSeek 官方号",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/1709da4f538d4ce4fb6d7a8ba1a5a1c297919601.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "DeepSeek 官方公众号(rss 转发) | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-433d2134dca54d80804daf32e8be54",
+      "name": "智谱官方号",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/433d2134dca54d80804daf32e8be546155be3300.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "智谱 AI 官方公众号 | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-c5c43d4bc17bae656763859ed0903b",
+      "name": "月之暗面 Kimi 官方号",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/c5c43d4bc17bae656763859ed0903bb6314ec6fe.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "月之暗面 Kimi 官方公众号 | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-3e2714d06aa36142e8ed6b3f4e5cf9",
+      "name": "阶跃 StepFun 官方号",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/3e2714d06aa36142e8ed6b3f4e5cf9090a069dd2.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "阶跃星辰官方公众号 | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-306ce19a1ca590c9c2df781789e828",
+      "name": "腾讯混元官方号",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/306ce19a1ca590c9c2df781789e828d1acfa1356.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "腾讯混元大模型官方公众号 | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-bfc6440c1a2443fab9a6bf607137d4",
+      "name": "大模型智能",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/bfc6440c1a2443fab9a6bf607137d41db5cd5c93.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "大模型技术/资讯公众号 | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-2f520471856d56c7b3a95cd09eb777",
+      "name": "机器之心 SOTA 模型",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/2f520471856d56c7b3a95cd09eb777149b32828a.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "机器之心 SOTA 模型解读号 | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-6152301e0978bffb0a8284cab33926",
+      "name": "腾讯研究院",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/6152301e0978bffb0a8284cab339262b9764dcfb.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "腾讯研究院公众号(产业研究) | 候选校验 10 条"
+    },
+    {
+      "key": "wechat2rss.bestblogs.dev-feed-e2f1190c120f7f3d74b630bfcfe9e5",
+      "name": "阿里研究院",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wechat2rss.bestblogs.dev/feed/e2f1190c120f7f3d74b630bfcfe9e58296bd535c.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "阿里研究院公众号(产业研究) | 候选校验 10 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-0c0856a69f9f49cf961018c32a0b0049",
+      "name": "X · OpenAI(@OpenAI)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/0c0856a69f9f49cf961018c32a0b0049",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "A",
+      "category": "social",
+      "description": "OpenAI 官方 X 账号(经 xgo.ing RSS) | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-971dc1fc90da449bac23e5fad8a33d55",
+      "name": "X · OpenAI Developers(@OpenAIDevs)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/971dc1fc90da449bac23e5fad8a33d55",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "A",
+      "category": "social",
+      "description": "OpenAI 开发者账号 | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-fc28a211471b496682feff329ec616e5",
+      "name": "X · Anthropic(@AnthropicAI)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/fc28a211471b496682feff329ec616e5",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "A",
+      "category": "social",
+      "description": "Anthropic 官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-a99538443a484fcc846bdcc8f50745ec",
+      "name": "X · Google DeepMind(@GoogleDeepMind)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/a99538443a484fcc846bdcc8f50745ec",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "A",
+      "category": "social",
+      "description": "DeepMind 官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-61f4b78554fb4b8fa5653ec5d924d15a",
+      "name": "X · Microsoft Research(@MSFTResearch)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/61f4b78554fb4b8fa5653ec5d924d15a",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "A",
+      "category": "social",
+      "description": "微软研究院官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-fc16750ce50741f1b1f05ea1fb29436f",
+      "name": "X · Hugging Face(@huggingface)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/fc16750ce50741f1b1f05ea1fb29436f",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "A",
+      "category": "social",
+      "description": "Hugging Face 官方 X | 候选校验 48 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-05f1492e43514dc3862a076d3697c390",
+      "name": "X · NVIDIA AI(@NVIDIAAI)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/05f1492e43514dc3862a076d3697c390",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "NVIDIA AI 官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-68b610deb24b47ae9a236811563cda86",
+      "name": "X · DeepSeek(@deepseek_ai)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/68b610deb24b47ae9a236811563cda86",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "DeepSeek 官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-80032d016d654eb4afe741ff34b7643d",
+      "name": "X · Qwen(@Alibaba_Qwen)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/80032d016d654eb4afe741ff34b7643d",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "通义千问官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-3953aa71e87a422eb9d7bf6ff1c7c43e",
+      "name": "X · xAI(@xai)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/3953aa71e87a422eb9d7bf6ff1c7c43e",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "xAI 官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-5287b4e0e13a4ab7ab7b1d56f9d88960",
+      "name": "X · Cursor(@cursor_ai)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/5287b4e0e13a4ab7ab7b1d56f9d88960",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "Cursor 官方 X(AI 编程) | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-862fee50a745423c87e2633b274caf1d",
+      "name": "X · LangChain(@LangChainAI)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/862fee50a745423c87e2633b274caf1d",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "LangChain 官方 X | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-6326c63a2dfa445bbde88bea0c3112c2",
+      "name": "X · Ollama(@ollama)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/6326c63a2dfa445bbde88bea0c3112c2",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "Ollama 官方 X(本地模型) | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-97f1484ae48c430fbbf3438099743674",
+      "name": "X · 宝玉(@dotey)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/97f1484ae48c430fbbf3438099743674",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "AI 领域头部中文博主 | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-831fac36aa0a49a9af79f35dc1c9b5d9",
+      "name": "X · 歸藏(@op7418)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/831fac36aa0a49a9af79f35dc1c9b5d9",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "AIGC Weekly 作者,AI 产品/工具 | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-74e542992cf7441390c708f5601071d4",
+      "name": "X · 小互(@imxiaohu)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/74e542992cf7441390c708f5601071d4",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "AI 资讯中文博主 | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-9de19c78f7454ad08c956c1a00d237fe",
+      "name": "X · 向阳乔木(@vista8)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/9de19c78f7454ad08c956c1a00d237fe",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "AI 产品中文博主 | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-ca2fa444b6ea4b8b974fe148056e497a",
+      "name": "X · 李继刚(@lijigang_com)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/ca2fa444b6ea4b8b974fe148056e497a",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "提示词/LLM 应用中文博主 | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-c6cfe7c0d6b74849997073233fdea840",
+      "name": "X · Jim Fan(@DrJimFan)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/c6cfe7c0d6b74849997073233fdea840",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "NVIDIA 具身智能研究者 | 候选校验 50 条"
+    },
+    {
+      "key": "api.xgo.ing-rss-user-665fc88440fd4436acbc2e630d824926",
+      "name": "X · Tw93(@HiTw93)",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://api.xgo.ing/rss/user/665fc88440fd4436acbc2e630d824926",
+      "config": {
+        "object_type": "community"
+      },
+      "tier": "B",
+      "category": "social",
+      "description": "潮流周刊作者,工程/工具 | 候选校验 50 条"
+    },
+    {
+      "key": "techcrunch.com-feed",
+      "name": "TechCrunch",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://techcrunch.com/feed/",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "全球科技创投媒体(产业落地) | 候选校验 20 条"
+    },
+    {
+      "key": "www.theverge.com-rss-index.xml",
+      "name": "The Verge",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "config": {},
+      "tier": "A",
+      "category": "news",
+      "description": "全球科技媒体 | 候选校验 10 条"
+    },
+    {
+      "key": "rss.nytimes.com-services-xml-rss-nyt-technology.xml",
+      "name": "NYT Technology",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+      "config": {},
+      "tier": "B",
+      "category": "news",
+      "description": "纽约时报科技版 | 候选校验 22 条"
+    },
+    {
+      "key": "www.ithome.com-rss",
+      "name": "IT之家",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.ithome.com/rss/",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "中文科技快讯(高时效) | 候选校验 60 条"
+    },
+    {
+      "key": "rss.huxiu.com",
+      "name": "虎嗅",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rss.huxiu.com/",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "中文商业科技媒体 | 候选校验 15 条"
+    },
+    {
+      "key": "sspai.com-feed",
+      "name": "少数派",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://sspai.com/feed",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "中文数字生活/效率媒体 | 候选校验 10 条"
+    },
+    {
+      "key": "github.blog-changelog-label-copilot-feed",
+      "name": "GitHub Copilot Changelog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://github.blog/changelog/label/copilot/feed/",
+      "config": {},
+      "tier": "A",
+      "category": "engineering",
+      "description": "GitHub Copilot 官方更新日志 | 候选校验 10 条"
+    },
+    {
+      "key": "netflixtechblog.com-feed",
+      "name": "Netflix Tech Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://netflixtechblog.com/feed",
+      "config": {},
+      "tier": "B",
+      "category": "engineering",
+      "description": "Netflix 工程博客 | 候选校验 10 条"
+    },
+    {
+      "key": "blog.cloudflare.com-rss",
+      "name": "The Cloudflare Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://blog.cloudflare.com/rss",
+      "config": {},
+      "tier": "B",
+      "category": "engineering",
+      "description": "Cloudflare 官方工程博客 | 候选校验 20 条"
+    },
+    {
+      "key": "medium.com-feed-airbnb-engineering",
+      "name": "Airbnb Tech Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://medium.com/feed/airbnb-engineering",
+      "config": {},
+      "tier": "B",
+      "category": "engineering",
+      "description": "Airbnb 工程博客 | 候选校验 10 条"
+    },
+    {
+      "key": "stripe.com-blog-feed.rss",
+      "name": "Stripe Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://stripe.com/blog/feed.rss",
+      "config": {},
+      "tier": "B",
+      "category": "engineering",
+      "description": "Stripe 官方博客(AI 支付/工程) | 候选校验 10 条"
+    },
+    {
+      "key": "engineering.atspotify.com-feed",
+      "name": "Spotify Engineering",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://engineering.atspotify.com/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "engineering",
+      "description": "Spotify 工程博客(ML 推荐) | 候选校验 5 条"
+    },
+    {
+      "key": "wiki.eryajf.net-rss.xml",
+      "name": "二丫讲梵",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://wiki.eryajf.net/rss.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "运维/工程高质量中文博客 | 候选校验 468 条"
+    },
+    {
+      "key": "www.ruanyifeng.com-blog-atom.xml",
+      "name": "阮一峰的网络日志",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.ruanyifeng.com/blog/atom.xml",
+      "config": {},
+      "tier": "A",
+      "category": "cn",
+      "description": "中文技术写作标杆,科技周刊 | 候选校验 3 条"
+    },
+    {
+      "key": "rssweball.top-feed-afaf2a3c-e11a-4783-a358-9e2d20d76a69.xml",
+      "name": "Fengc's Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rssweball.top/feed/afaf2a3c-e11a-4783-a358-9e2d20d76a69.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "AI + 工程中文博客 | 候选校验 50 条"
+    },
+    {
+      "key": "mingnify.com-zh-blog-atom.xml",
+      "name": "明立非 Mingnify",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://mingnify.com/zh/blog/atom.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "AI 工程中文博客 | 候选校验 20 条"
+    },
+    {
+      "key": "rokcso.com-index.xml",
+      "name": "Rokcso's Blog",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://rokcso.com/index.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "AI 开发中文博客 | 候选校验 10 条"
+    },
+    {
+      "key": "xiangyugongzuoliu.com-latest-rss",
+      "name": "翔宇工作流",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://xiangyugongzuoliu.com/latest/rss/",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "AI 工作流/自动化中文博客 | 候选校验 15 条"
+    },
+    {
+      "key": "bddxg.top-feed.rss",
+      "name": "冰冻大西瓜",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://bddxg.top/feed.rss",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "AI/数据中文博客 | 候选校验 51 条"
+    },
+    {
+      "key": "data4fun.cc-index.xml",
+      "name": "Data4Fun",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://data4fun.cc/index.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "数据科学中文博客 | 候选校验 20 条"
+    },
+    {
+      "key": "h4ck.org.cn-feed",
+      "name": "obaby",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://h4ck.org.cn/feed/",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "资深中文技术博客 | 候选校验 10 条"
+    },
+    {
+      "key": "icodex.me-atom.xml",
+      "name": "icodex",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://icodex.me/atom.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "前端 + AI 中文博客 | 候选校验 20 条"
+    },
+    {
+      "key": "lukefan.com-feed-rss2",
+      "name": "老范讲故事",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "http://lukefan.com/?feed=rss2",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "AI/大模型商业观察 | 候选校验 10 条"
+    },
+    {
+      "key": "www.supertechfans.com-cn-index.xml",
+      "name": "HackerNews 每日摘要",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://www.supertechfans.com/cn/index.xml",
+      "config": {},
+      "tier": "B",
+      "category": "cn",
+      "description": "HN 中文精选日报 | 候选校验 5 条"
+    },
+    {
+      "key": "quaily.com-op7418-feed-atom",
+      "name": "AIGC Weekly",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://quaily.com/op7418/feed/atom",
+      "config": {},
+      "tier": "A",
+      "category": "blog",
+      "description": "归藏的 AIGC 周报(AI 产品风向标) | 候选校验 40 条"
+    },
+    {
+      "key": "lastweekin.ai-feed",
+      "name": "Last Week in AI",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://lastweekin.ai/feed",
+      "config": {},
+      "tier": "B",
+      "category": "blog",
+      "description": "AI 周报(英文) | 候选校验 20 条"
+    },
+    {
+      "key": "weekly.tw93.fun-rss.xml",
+      "name": "潮流周刊",
+      "channel": "rss",
+      "collector_kind": "stream",
+      "url": "https://weekly.tw93.fun/rss.xml",
+      "config": {},
+      "tier": "B",
+      "category": "blog",
+      "description": "Tw93 工程周刊 | 候选校验 12 条"
+    }
+  ]
+}
