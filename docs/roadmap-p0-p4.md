@@ -396,3 +396,11 @@
 - 顺带:API Key 的已存掩码从 label 移到字段下方 `extra`(`已保存 sk-*** · 留空则保留`);`LLMSettings` 未改动,新增前端 `PushLog` 复用已有类型(见 `frontend/src/api/types.ts`)。
 - 验证:真机走查(8017)——改值出现「未保存修改」金标→保存 PUT 200 回「已同步」(LLM 配置与 api_key 未被误改);编辑抽屉 JSON 非法时拦截保存并提示,合法保存 PUT 200 且 token 保留;启用开关两次 PUT 后状态还原;删除二次确认取消后渠道仍在;`pnpm typecheck` + `pnpm build` 通过(dist 已更新)。
 - 未做(评审中的 2 的剩余部分与 5):API Key 两态「更换 Key」控件、宽屏两列栅格与右栏辅助信息、关于收敛为页脚。
+
+## 2026-10-08 · 开源发布:README / LICENSE / CI / 贡献指南 + 首次推送
+- 需求(Master):推送至 `github.com/dongbucheng-ch/research-agent` 开源,产出专业 README 与必要仓库文件。
+- 新增:`README.md`(重写:特性 / 架构图 / 快速开始 / 环境变量表 / 使用流程 / 项目结构 / 测试 / 文档索引 / 许可)、`LICENSE`(MIT,Copyright 2026 dongbucheng-ch)、`CONTRIBUTING.md`(环境 / 提交规范 / 代码规范 / 扩展点表)、`THIRD_PARTY_NOTICES.md`(原文件补 MIT 开源说明)、`.github/workflows/ci.yml`、`.github/ISSUE_TEMPLATE/{bug_report,feature_request}.yml`、`.github/PULL_REQUEST_TEMPLATE.md`。
+- `.gitignore` 补 `.env.*`(保留 `!.env.example`)、`*.log`、`dist/`、`*.tsbuildinfo`、`.mypy_cache/`、`.idea/`、`.vscode/`;`backend/.env.example` 去掉对本机共享容器名的引用,补 `RA_GITHUB_TOKEN` 说明。
+- 公开前扫描:全仓 `rg` 无真实密钥入库(`backend/.env` 已被忽略);`git diff --cached` 复核 151 个文件,无 `.env` / `node_modules` / `dist` / 日志。
+- 首次提交 `chore(20261008): open-source research-agent`,推送 `main` 至 `git@github.com:dongbucheng-ch/research-agent.git`;CI 首跑通过(backend `ruff` + `pytest`、frontend `typecheck` + `build`)。workflow 内 action 统一升级至最新大版本(checkout@v7 / setup-python@v7 / setup-node@v7 / setup-uv@v10 / pnpm-action-setup@v6)并加 `permissions: contents: read`。
+- 遗留(待 Master 决策):`docs/roadmap-p0-p4.md` 与 `backend/tests/test_llm.py` 含内部域名/集成端点(`club.sribd.cn`、`api-aitest.sribd.cn`)与内部环境变量名,公开仓库后如介意可脱敏为泛化示例;未擅自改动既有记录。
