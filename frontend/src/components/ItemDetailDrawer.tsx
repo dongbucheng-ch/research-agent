@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExportOutlined, MoreOutlined } from '@ant-design/icons'
+import { ExportOutlined, MoreOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -18,21 +18,23 @@ import {
 } from 'antd'
 import { api } from '../api/client'
 import type { ItemDetail } from '../api/types'
-import { CONTENT_TYPE_META, formatRelative, formatTime } from '../utils'
+import { CONTENT_TYPE_META, formatRelative, formatTime, scoreHex } from '../utils'
 
 interface Props {
   itemId: number | null
   onClose: () => void
 }
 
-/** 速读卡片:what / why / how;旧数据(background/method/result/insight)按原字段渲染。 */
+/**
+ * 速读卡片的两套字段只是历史遗留的数据形状,对用户不构成"版本":
+ * 渲染时按卡片实际携带的字段取标签,布局、字号、颜色完全一致,界面上不做任何区分。
+ * - 新形状:what / why / how(是什么 / 为什么重要 / 怎么用)
+ * - 旧形状:background / method / result / insight(背景 / 方法 / 结果 / 启示)
+ */
 const CARD_FIELDS: Array<[string, string]> = [
   ['what', '是什么'],
   ['why', '为什么重要'],
   ['how', '怎么用'],
-]
-
-const LEGACY_CARD_FIELDS: Array<[string, string]> = [
   ['background', '背景'],
   ['method', '方法'],
   ['result', '结果'],
@@ -40,26 +42,41 @@ const LEGACY_CARD_FIELDS: Array<[string, string]> = [
 ]
 
 function cardFields(card: Record<string, unknown>): Array<[string, string]> {
-  const hasNew = CARD_FIELDS.some(([key]) => String(card[key] ?? '').trim())
-  return hasNew ? CARD_FIELDS : LEGACY_CARD_FIELDS
+  const filled = CARD_FIELDS.filter(([key]) => String(card[key] ?? '').trim())
+  return filled.length ? filled : CARD_FIELDS.slice(0, 3)
 }
 
-const SCORE_FIELDS: Array<{ key: 'relevance' | 'heat' | 'freshness'; label: string; weight: string }> = [
-  { key: 'relevance', label: '相关', weight: '0.45' },
-  { key: 'heat', label: '热度', weight: '0.35' },
-  { key: 'freshness', label: '时效', weight: '0.20' },
+const SCORE_FIELDS: Array<{ key: 'relevance' | 'heat' | 'freshness'; label: string; weight: number }> = [
+  { key: 'relevance', label: '相关', weight: 0.45 },
+  { key: 'heat', label: '热度', weight: 0.35 },
+  { key: 'freshness', label: '时效', weight: 0.2 },
 ]
 
-/** 分数 → 内联文字/进度条颜色(与 utils.scoreColor 的分档一致)。 */
-function scoreHex(total: number | null | undefined): string {
-  const value = total ?? 0
-  if (value >= 80) return '#cf1322'
-  if (value >= 65) return '#d46b08'
-  if (value >= 50) return '#1677ff'
-  return '#8c8c8c'
+const clampPercent = (value: unknown) => Math.max(0, Math.min(100, Number(value ?? 0) || 0))
+/** 分值统一到一位小数:同一列里混着 100 / 98 / 93.24 三种精度会让眼睛反复校准 */
+const fmtScore = (value: unknown) => (Number(value ?? 0) || 0).toFixed(1)
+
+/**
+ * 摘要与速读卡片是否同源:把中文切成二元组、英文按词,算摘要片段落在卡片里的比例。
+ * 实测 60 条真实数据中位数 0.56,≥0.70 的约两成——这些摘要基本是卡片的复述,折叠掉避免读两遍。
+ */
+const SUMMARY_FOLD_THRESHOLD = 0.7
+
+function tokensOf(text: string): string[] {
+  const lower = text.toLowerCase()
+  const latin = lower.match(/[a-z0-9][a-z0-9.+-]*/g) ?? []
+  const cjk = (lower.match(/[\u4e00-\u9fa5]/g) ?? []).join('')
+  const grams: string[] = []
+  for (let i = 0; i + 1 < cjk.length; i += 1) grams.push(cjk.slice(i, i + 2))
+  return [...latin, ...grams]
 }
 
-const clampPercent = (value: unknown) => Math.max(0, Math.min(100, Number(value ?? 0) || 0))
+function overlapRatio(summary: string, cardText: string): number {
+  const source = tokensOf(summary)
+  if (!source.length) return 0
+  const target = new Set(tokensOf(cardText))
+  return source.filter((token) => target.has(token)).length / source.length
+}
 
 export default function ItemDetailDrawer({ itemId, onClose }: Props) {
   const queryClient = useQueryClient()
@@ -93,23 +110,71 @@ export default function ItemDetailDrawer({ itemId, onClose }: Props) {
   const card = data?.card as Record<string, unknown> | null | undefined
   const [showAllRefs, setShowAllRefs] = useState(false)
   const [bodyOpen, setBodyOpen] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const references = data?.references ?? []
   const shownRefs = showAllRefs ? references : references.slice(0, 3)
   const cardRows = card ? cardFields(card) : []
-  const isLegacyCard = !!card && !CARD_FIELDS.some(([key]) => String(card[key] ?? '').trim())
+
+  /** meta 行只留 3 个话题标签,其余收进「+N」;标签密集出现会稀释真正要看的信号 */
+  const topicTags = data?.tags ?? []
+  const shownTopicTags = topicTags.slice(0, 3)
+  const hiddenTopicTags = topicTags.slice(3)
+
+  /** 卡片关键词与 meta 行、采集来源重复的不再重复展示 */
+  const shownWords = new Set(
+    [...(data?.collect_keywords ?? []), ...(data?.keyword_hits ?? []), ...topicTags].map((word) =>
+      word.toLowerCase(),
+    ),
+  )
+  const cardKeywords = ((card?.keywords as string[] | undefined) ?? []).filter(
+    (keyword) => !shownWords.has(keyword.toLowerCase()),
+  )
+
+  /** 采集关键词去重:先去大小写重复(AI 与 ai),再去包含关系(agent 与 llm agent 只留更具体的那个) */
+  const collectWords: string[] = []
+  const seenCollect = new Set<string>()
+  for (const word of (data?.collect_keywords.length ? data.collect_keywords : data?.keyword_hits) ?? []) {
+    const key = word.toLowerCase()
+    if (seenCollect.has(key)) continue
+    seenCollect.add(key)
+    collectWords.push(word)
+  }
+  const loweredCollect = collectWords.map((word) => word.toLowerCase())
+  const shownCollectWords = collectWords.filter((word, index) => {
+    const self = loweredCollect[index]
+    return !loweredCollect.some(
+      (other, otherIndex) => otherIndex !== index && other.length > self.length && other.includes(self),
+    )
+  })
+
+  /** 摘要与卡片同源时折叠成一行灰字(可展开),避免同一段内容读两遍 */
+  const summaryText = data?.summary ?? ''
+  const foldSummary =
+    !!card &&
+    !!summaryText &&
+    overlapRatio(
+      summaryText,
+      cardRows.map(([key]) => String(card?.[key] ?? '')).join(' '),
+    ) >= SUMMARY_FOLD_THRESHOLD
+  const showSummary = !!summaryText && (!foldSummary || summaryOpen)
 
   return (
     <>
       <Drawer
       width={720}
+      rootClassName="item-drawer"
       open={itemId !== null}
       onClose={onClose}
       title={
         data ? (
           <div className="item-drawer-heading">
-            <div className="item-drawer-title">{data.translated_title || data.title}</div>
+            <Tooltip title={data.translated_title || data.title} placement="bottomLeft">
+              <div className="item-drawer-title">{data.translated_title || data.title}</div>
+            </Tooltip>
             {data.translated_title && data.translated_title !== data.title && (
-              <div className="item-drawer-subtitle">{data.title}</div>
+              <Tooltip title={data.title} placement="bottomLeft">
+                <div className="item-drawer-subtitle">{data.title}</div>
+              </Tooltip>
             )}
           </div>
         ) : (
@@ -119,13 +184,8 @@ export default function ItemDetailDrawer({ itemId, onClose }: Props) {
       extra={
         data ? (
           <Space size={8}>
-            <Button
-              type="primary"
-              onClick={() => enrichMutation.mutate()}
-              loading={enrichMutation.isPending}
-            >
-              {card ? '重新生成速读卡片' : '生成速读卡片'}
-            </Button>
+            {/* 生成/重生成是「速读卡片」自己的动作,挪到该区块标题行(就近原则),
+                header 只留「打开原文 / 更多」,标题才能拿到完整宽度 */}
             <Tooltip title="打开原文">
               <Button icon={<ExportOutlined />} href={data.url} target="_blank" rel="noreferrer" />
             </Tooltip>
@@ -154,103 +214,93 @@ export default function ItemDetailDrawer({ itemId, onClose }: Props) {
         <Spin />
       ) : (
         <>
+          {/* 身份信息走一行灰字(标签只留给话题分类),一屏内的 chip 数量从 13 降到 3 */}
           <div className="item-drawer-meta">
-            <Space wrap size={4}>
-              {meta && <Tag color={meta.color}>{meta.label}</Tag>}
-              <Tag>{data.source_name ?? data.channel}</Tag>
-              {data.author && <Tag>{data.author}</Tag>}
-              {data.lang && <Tag>{data.lang}</Tag>}
-              {data.tags?.slice(0, 6).map((tag) => <Tag key={tag}>{tag}</Tag>)}
-            </Space>
+            <div className="item-drawer-meta-line">
+              {[meta?.label, data.source_name ?? data.channel, data.author].filter(Boolean).join(' · ')}
+            </div>
+            {shownTopicTags.length > 0 && (
+              <Space wrap size={4}>
+                {shownTopicTags.map((tag) => (
+                  <Tag key={tag}>{tag}</Tag>
+                ))}
+                {hiddenTopicTags.length > 0 && (
+                  <Tooltip title={hiddenTopicTags.join(' / ')}>
+                    <Tag className="item-tag-more">+{hiddenTopicTags.length}</Tag>
+                  </Tooltip>
+                )}
+              </Space>
+            )}
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               发布 {formatTime(data.published_at)} · 收录 {formatRelative(data.first_seen_at)}
+              {data.lang ? ` · ${data.lang}` : ''}
             </Typography.Text>
           </div>
 
-          {data.score && (
-            <div className="item-score-bar">
-              <div className="item-score-total" style={{ color: scoreHex(data.score.total) }}>
-                {data.score.total}
-                <span className="item-score-total-label">总分</span>
-              </div>
-              <div className="item-score-metrics">
-                {SCORE_FIELDS.map(({ key, label, weight }) => {
-                  const value = Number(data.score?.[key] ?? 0)
-                  return (
-                    <div className="item-score-metric" key={key}>
-                      <span className="item-score-metric-label">
-                        {label}
-                        <em>{weight}</em>
-                      </span>
-                      <span className="item-score-track">
-                        <i
-                          style={{
-                            width: `${clampPercent(value)}%`,
-                            background: scoreHex(value),
-                          }}
-                        />
-                      </span>
-                      <span className="item-score-metric-value">{value}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+          {showSummary && (
+            <Typography.Paragraph className="item-drawer-summary">{summaryText}</Typography.Paragraph>
           )}
 
           <Divider style={{ margin: '12px 0' }} />
 
-          {data.summary && <Typography.Paragraph className="item-drawer-summary">{data.summary}</Typography.Paragraph>}
-
-          <Typography.Title level={5} className="item-section-title">
-            速读卡片
-            {isLegacyCard && (
-              <Tag color="gold" style={{ marginInlineStart: 8, fontWeight: 400 }}>
-                旧版
-              </Tag>
-            )}
-          </Typography.Title>
-          {isLegacyCard && (
-            <Typography.Text
-              type="secondary"
-              style={{ fontSize: 12, display: 'block', marginBottom: 8 }}
-            >
-              旧版卡片,点右上角「重新生成速读卡片」可升级为「是什么 / 为什么重要 / 怎么用」。
-            </Typography.Text>
-          )}
-          {card ? (
-            <>
-              <div className="item-card-grid">
-                {cardRows.map(([key, label]) => (
-                  <div className="item-card-field" key={key}>
-                    <div className="item-card-label">{label}</div>
-                    <div className="item-card-text">{String(card[key] ?? '') || '-'}</div>
-                  </div>
-                ))}
-              </div>
-              {(card.keywords as string[] | undefined)?.length ? (
-                <Space wrap size={4} style={{ marginTop: 10 }}>
-                  {(card.keywords as string[]).map((keyword) => (
-                    <Tag key={keyword}>{keyword}</Tag>
-                  ))}
-                </Space>
-              ) : null}
-            </>
-          ) : (
-            <div className="item-card-empty">
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                还没有速读卡片;生成后可获得「是什么 / 为什么重要 / 怎么用」三段摘要。
-              </Typography.Text>
+          {/* 速读卡片:一张独立的卡、单列纵向编号段落。
+              旧的两列象限要左右来回扫读,长句在窄列里被切成碎行,读起来像表格而不像文章 */}
+          <section className="read-card">
+            <div className="read-card-head">
+              <span className="read-card-title">速读卡片</span>
               <Button
-                type="primary"
+                type="text"
                 size="small"
-                onClick={() => enrichMutation.mutate()}
+                className="item-section-action"
+                icon={<ThunderboltOutlined />}
                 loading={enrichMutation.isPending}
+                onClick={() => enrichMutation.mutate()}
               >
-                生成速读卡片
+                {card ? '重新生成' : '生成'}
               </Button>
             </div>
-          )}
+            {card ? (
+              <>
+                <ol className="read-card-body">
+                  {cardRows.map(([key, label], index) => (
+                    <li className="read-card-item" key={key}>
+                      <div className="read-card-item-head">
+                        <span className="read-card-index">{String(index + 1).padStart(2, '0')}</span>
+                        <span className="read-card-label">{label}</span>
+                      </div>
+                      <p className="read-card-text">{String(card[key] ?? '') || '-'}</p>
+                    </li>
+                  ))}
+                </ol>
+                {(cardKeywords.length > 0 || foldSummary) && (
+                  <div className="read-card-foot">
+                    {cardKeywords.length > 0 && (
+                      <span className="read-card-words">{cardKeywords.join(' · ')}</span>
+                    )}
+                    {foldSummary && (
+                      <Button
+                        type="link"
+                        size="small"
+                        className="read-card-summary-toggle"
+                        onClick={() => setSummaryOpen((value) => !value)}
+                      >
+                        {summaryOpen ? '收起原始摘要' : '原始摘要'}
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {foldSummary && summaryOpen && (
+                  <div className="read-card-summary">{summaryText}</div>
+                )}
+              </>
+            ) : (
+              <div className="read-card-empty">
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  还没有速读卡片;点右上角「生成」得到结构化速读要点。
+                </Typography.Text>
+              </div>
+            )}
+          </section>
 
           <Divider style={{ margin: '12px 0' }} />
           {references.length > 0 ? (
@@ -288,23 +338,45 @@ export default function ItemDetailDrawer({ itemId, onClose }: Props) {
           )}
 
           <Divider style={{ margin: '12px 0' }} />
+          {/* 评分块降噪后置:总分不再用大号数字与满宽灰底抢占首屏,退到「参考信息」这一档 */}
+          {data.score && (
+            <div className="item-score-bar">
+              <div className="item-score-total" style={{ color: scoreHex(data.score.total) }}>
+                {fmtScore(data.score.total)}
+                <span className="item-score-total-label">总分</span>
+              </div>
+              <div className="item-score-metrics">
+                {SCORE_FIELDS.map(({ key, label, weight }) => {
+                  const value = Number(data.score?.[key] ?? 0)
+                  return (
+                    <div className="item-score-metric" key={key}>
+                      <span className="item-score-metric-label">
+                        {label}
+                        <em>{Math.round(weight * 100)}%</em>
+                      </span>
+                      <span className="item-score-track">
+                        <i style={{ width: `${clampPercent(value)}%` }} />
+                      </span>
+                      <span className="item-score-metric-value">{fmtScore(value)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           <Descriptions column={2} size="small">
             <Descriptions.Item label="采集来源" span={2}>
               {data.collect_name || data.origin || data.keyword_hits.length > 0 ? (
-                <Space wrap size={4}>
-                  {data.collect_name && <Tag color="geekblue">{data.collect_name}</Tag>}
-                  {(data.collect_keywords.length ? data.collect_keywords : data.keyword_hits)
-                    .slice(0, 4)
-                    .map((word) => (
-                      <Tag key={word}>{word}</Tag>
-                    ))}
-                  {data.collect_keywords.length > 0 && data.keyword_hits.length > 0 && (
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      命中 {data.keyword_hits.slice(0, 3).join(' / ')}
-                    </Typography.Text>
-                  )}
-                  {data.origin === 'backfill' && <Tag color="gold">辐射词补采</Tag>}
-                </Space>
+                <span className="item-collect-line">
+                  {[
+                    data.collect_name,
+                    ...(data.collect_keywords.length ? shownCollectWords : data.keyword_hits).slice(0, 4),
+                    ...(data.origin === 'backfill' ? ['辐射词补采'] : []),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
               ) : (
                 '(旧素材,未记录采集方向)'
               )}

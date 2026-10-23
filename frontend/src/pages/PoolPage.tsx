@@ -1,4 +1,3 @@
-import { Tabs, Typography } from 'antd'
 import { useSearchParams } from 'react-router-dom'
 import ArticlePanel from '../components/pool/ArticlePanel'
 import DigestPanel from '../components/pool/DigestPanel'
@@ -19,38 +18,27 @@ export default function PoolPage() {
   const tab = resolveTab(params)
   const focusId = Number(params.get('id')) || null
 
+  /**
+   * 子页签内选择回写 URL:刷新/分享/后退都能回到同一条。
+   * replace=true 用于键盘预览(不新增历史项),点击与回车走历史项。
+   */
+  const selectOutput = (id: number | null, options?: { replace?: boolean }) => {
+    const next = new URLSearchParams(params)
+    next.set('tab', tab)
+    next.delete('kind')
+    if (id === null) next.delete('id')
+    else next.set('id', String(id))
+    if (next.toString() === params.toString()) return
+    setParams(next, { replace: options?.replace ?? false })
+  }
+
+  // 页签切换由左侧栏二级菜单驱动(路由 + ?tab=),这里只按参数渲染对应面板
   return (
-    <div>
-      <Typography.Title level={4} style={{ margin: 0 }}>
-        素材池
-      </Typography.Title>
-      <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-        采集入库的原始素材(资讯 / 论文 / GitHub)与由素材生成的产出物(日报 / 完整文章),素材可反查引用它的产出物。
-      </Typography.Text>
-      <Tabs
-        style={{ marginTop: 8 }}
-        activeKey={tab}
-        onChange={(key) => {
-          const next = new URLSearchParams(params)
-          next.set('tab', key)
-          next.delete('kind')
-          next.delete('id')
-          setParams(next, { replace: true })
-        }}
-        items={[
-          { key: 'material', label: '素材', children: <MaterialTab /> },
-          {
-            key: 'digest',
-            label: '日报',
-            children: <DigestPanel focusId={tab === 'digest' ? focusId : null} />,
-          },
-          {
-            key: 'article',
-            label: '文章',
-            children: <ArticlePanel focusId={tab === 'article' ? focusId : null} />,
-          },
-        ]}
-      />
+    <div className="pool-page">
+      {/* 素材页自己读写 URL 里的筛选参数(含 source_id 深链),这里不再中转 */}
+      {tab === 'material' ? <MaterialTab /> : null}
+      {tab === 'digest' ? <DigestPanel focusId={focusId} onSelect={selectOutput} /> : null}
+      {tab === 'article' ? <ArticlePanel focusId={focusId} onSelect={selectOutput} /> : null}
     </div>
   )
 }
