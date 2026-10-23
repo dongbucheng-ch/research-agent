@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, Card, Empty, Popconfirm, Space, Switch, Table, Tag, Tooltip, Typography, message } from 'antd'
+import { Button, Card, Empty, Popconfirm, Space, Spin, Switch, Table, Tag, Tooltip, Typography, message } from 'antd'
 import { api } from '../api/client'
 import type { JobRun, Schedule } from '../api/types'
 import { formatRelative, formatTime } from '../utils'
@@ -65,13 +65,21 @@ export default function SchedulesCard({ onOpenJob }: Props) {
       size="small"
       title="定时采集"
       style={{ marginTop: 16 }}
-      styles={{ body: { padding: data?.length ? 0 : 24 } }}
+      /* 一律不留内边距:加载态、空态用与「一行表格」等高的容器兜住,数据到达时卡片高度不变 */
+      styles={{ body: { padding: 0 } }}
     >
-      {isLoading ? null : !data || data.length === 0 ? (
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="还没有定时配置:到「采集工作台」填好配置后勾选「保存为定时任务」"
-        />
+      {isLoading ? (
+        /* 加载态先占住一行表格的高度:否则数据到达时卡片长高,下面的「执行记录」会整体下跳 */
+        <div className="sched-loading">
+          <Spin size="small" />
+        </div>
+      ) : !data || data.length === 0 ? (
+        <div className="sched-empty">
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="还没有定时配置:到「采集工作台」填好配置后勾选「保存为定时任务」"
+          />
+        </div>
       ) : (
         <Table<Schedule>
           rowKey="id"
@@ -178,7 +186,8 @@ export default function SchedulesCard({ onOpenJob }: Props) {
                     立即执行
                   </Button>
                   <Popconfirm title="删除该定时配置?" onConfirm={() => remove.mutate(record.id)}>
-                    <Button size="small" danger>
+                    {/* 危险动作平时保持安静,悬停才转红(Popconfirm 负责二次确认) */}
+                    <Button size="small" type="text" className="sched-danger-btn">
                       删除
                     </Button>
                   </Popconfirm>

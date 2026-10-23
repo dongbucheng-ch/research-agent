@@ -483,37 +483,213 @@ body {
   color: #1677ff;
 }
 
-.job-log {
-  background: #0f172a;
-  color: #d6e2ff;
-  padding: 12px;
+/* 终端面板:高度按「整行」算(--job-log-rows × --job-log-row),
+   避免固定像素高度把最后一行裁成半行;行高与字号分离,保证行距恒定。 */
+.job-log,
+.job-log-viewer {
+  --job-log-row: 20px;
+  --job-log-pad: 10px;
+  background: #0d1117;
+  color: #c9d1d9;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  max-height: 360px;
-  overflow: auto;
   font-size: 12px;
-  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", "PingFang SC", "Microsoft YaHei", monospace;
+  font-variant-ligatures: none;
+  line-height: var(--job-log-row);
 }
 
 .job-log-viewer {
-  background: #0f172a;
-  color: #d6e2ff;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 12px;
+  /* 宽度上限按实测行宽定:2387 行真实日志 p99 = 1098px,1120px 之外只有 1% 的行换行,
+     而面板拉满时中位行仅占 50–59% 宽度,深色块里 40% 以上恒为纯黑空白。 */
+  max-width: 1120px;
+  height: calc(var(--job-log-rows, 16) * var(--job-log-row) + 2 * var(--job-log-pad) + 2px);
+  padding: var(--job-log-pad) 14px;
+  overflow: auto;
+  /* 终端内部滚动不把页面一起带走 */
+  overscroll-behavior: contain;
+}
+
+.job-log {
+  padding: 12px;
+  max-height: 360px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
 }
 
 .job-log-line {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
-  padding: 3px 0;
-  border-bottom: 1px dashed rgba(214, 226, 255, 0.08);
-  line-height: 1.6;
+  gap: 8px;
+  white-space: pre-wrap;
   word-break: break-word;
 }
 
-.job-log-line:last-child {
-  border-bottom: none;
+/* 空态(尚无日志/运行中):弱化为提示文案,不与真实日志行抢注意力 */
+.job-log-empty {
+  color: #6e7681;
+  font-style: italic;
+}
+
+/* 终端式前缀:等宽、定宽列,长标签自然撑开 */
+.job-log-tag {
+  flex: 0 0 auto;
+  min-width: 5.4em;
+  color: #8b949e;
+}
+
+.job-log-tag--dim {
+  color: #8b949e;
+}
+.job-log-tag--cyan {
+  color: #56d4dd;
+}
+.job-log-tag--blue {
+  color: #79c0ff;
+}
+.job-log-tag--purple {
+  color: #d2a8ff;
+}
+.job-log-tag--gold {
+  color: #e3b341;
+}
+.job-log-tag--orange {
+  color: #ffa657;
+}
+.job-log-tag--green {
+  color: #7ee787;
+}
+.job-log-tag--magenta {
+  color: #ff7bce;
+}
+.job-log-tag--volcano {
+  color: #ff9b70;
+}
+
+/* 日志级别着色(仅在 highlightSeverity 开启时挂类) */
+/* 级别标记放在行左侧的固定留白里,不挤占标签列 → 所有行的文字基线保持对齐 */
+.job-log-line--error,
+.job-log-line--warn {
+  position: relative;
+}
+
+.job-log-line--error {
+  color: #ff7b72;
+}
+
+.job-log-line--error::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(248, 81, 73, 0.75);
+}
+
+.job-log-line--error .job-log-tag {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.job-log-line--warn {
+  color: #e3b341;
+}
+
+.job-log-line--warn::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(210, 153, 34, 0.6);
+}
+
+.job-log-line--warn .job-log-tag {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.job-log-viewer ::selection {
+  background: rgba(56, 139, 253, 0.4);
+}
+
+/* 终端外壳:工具条 + 行号列;行号让右侧留白被读作终端内边距,并支持「第 N 行」引用 */
+.job-log-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+/* 抽屉里的运行上下文:参数 + 本次检索词(原「运行参数与检索词」卡的内容迁到这里) */
+.job-log-run-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.job-log-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.job-log-toolbar-spacer {
+  flex: 1;
+}
+.job-log-stat {
+  font-size: 12px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+.job-log-stat .is-error {
+  color: #cf1322;
+}
+.job-log-stat .is-warn {
+  color: #ad6800;
+}
+.job-log-hit {
+  font-size: 12px;
+  color: #6b7280;
+}
+.job-log-line--numbered {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+}
+.job-log-ln {
+  color: #6e7681;
+  text-align: right;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+.job-log-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.job-log-msg {
+  min-width: 0;
+}
+.job-log-viewer mark {
+  background: rgba(187, 128, 9, 0.4);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+/* 抽屉里高度跟随容器:行数不再决定高度 */
+.job-log-viewer--fill {
+  flex: 1;
+  height: auto;
+  min-height: 240px;
+  max-width: none;
 }
 
 .collect-steps {
@@ -537,7 +713,7 @@ body {
   gap: 8px;
 }
 .pipeline-kicker {
-  color: #bfbfbf;
+  color: #6b7280;
   font-size: 13px;
 }
 .pipeline-title {
@@ -551,15 +727,15 @@ body {
   gap: 12px;
 }
 .pipeline-schedule {
-  color: #8c8c8c;
+  color: #6b7280;
   font-size: 12px;
 }
 .pipeline-refresh {
-  color: #8c8c8c;
+  color: #6b7280;
   cursor: pointer;
 }
 .pipeline-refresh:hover {
-  color: #1677ff;
+  color: #0958d9;
 }
 
 .pipeline-grid {
@@ -583,6 +759,24 @@ body {
   height: 20px;
   font-size: 15px;
   flex: 0 0 auto;
+  color: #d9d9d9;
+}
+/* 状态色只表达状态,阶段识别色不参与 */
+.pipeline-dot.state-success {
+  color: #237804;
+}
+.pipeline-dot.state-error {
+  color: #cf1322;
+}
+.pipeline-dot.state-running {
+  color: #0958d9;
+}
+.pipeline-dot-empty {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  display: inline-block;
 }
 .pipeline-line {
   flex: 1 1 auto;
@@ -1775,6 +1969,349 @@ body {
   border-color: transparent;
   background: #f4f6f9;
   color: rgba(0, 0, 0, 0.25);
+}
+
+/* ── 表格:通用展开指示符 ──────────────────────────────────────
+   无边框 chevron,展开时旋转 90°;悬停给一块极浅底,键盘聚焦有焦点环。
+   AntD 默认的「带框＋」在业务行里会被读成「新增」,信源池 / 任务中心统一改用此件。 */
+.ant-table-thead > tr > th.ant-table-row-expand-icon-cell,
+.ant-table-tbody > tr > td.ant-table-row-expand-icon-cell {
+  padding-inline: 0;
+  text-align: center;
+}
+.table-expander {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  color: #5b6472;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.table-expander:hover {
+  background: #f2f4f7;
+  color: #16181d;
+}
+.table-expander:focus-visible {
+  outline: 2px solid #1677ff;
+  outline-offset: 1px;
+}
+.table-expander.is-placeholder {
+  cursor: default;
+  background: transparent;
+}
+.table-expander-caret {
+  font-size: 12px;
+  transition: transform 0.18s ease;
+}
+.table-expander.is-open .table-expander-caret {
+  transform: rotate(90deg);
+}
+
+/* ── 任务中心:执行记录 ──────────────────────────────────────────
+   与信源池同一套卡片语言:白卡 + 16 圆角 + 柔和投影;表头常驻、内部滚动。
+   显著性预算:页面上只有「生成日报」一个实心主按钮;失败行给原因与动作,
+   成功行只留安静图标 —— 红色与蓝色都留给需要人动手的地方。 */
+/* 工具条:筛选在左、页面级动作在右;窄屏换行时卡片自动让出高度,页面不滚动 */
+.jobs-page .jobs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex: none;
+}
+.jobs-page .jobs-toolbar-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.jobs-page .jobs-search.ant-input-affix-wrapper {
+  width: 216px;
+}
+.jobs-page .jobs-only-failed.ant-btn.is-on {
+  border-color: #ffccc7;
+  background: #fff1f0;
+  color: #cf1322;
+}
+
+/* 心跳:有排队/运行中的任务才亮蓝点并显示「x 秒前刷新」,平时只做静态的时间说明 */
+.jobs-page .jobs-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--src-text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.jobs-page .jobs-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c2c9d2;
+}
+.jobs-page .jobs-live.is-on {
+  color: var(--src-text-2);
+}
+.jobs-page .jobs-live.is-on i {
+  background: var(--src-accent);
+  box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.12);
+  animation: jobs-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes jobs-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* 首屏占位:数据到达前先占满表体高度,避免「空表 → 满表」跳一下 */
+.jobs-page .jobs-blank {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 分页常驻卡片底部,与信源池同规格 */
+.jobs-page .jobs-surface-foot {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  border-top: 1px solid var(--src-border);
+}
+
+/* 定时采集的加载态与空态:高度钉死成「表头 + 一行」的 98px,
+   数据到达时卡片不长高,下面的「执行记录」不会跟着跳(实测旧值 90px 会让下方整体上跳 40px) */
+.jobs-page .sched-loading,
+.jobs-page .sched-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 98px;
+}
+
+/* 保留上一批行时:轻微降透明度提示「正在取新数据」,不再整表清空 */
+.jobs-page .jobs-surface.is-updating .ant-table-tbody {
+  opacity: 0.55;
+}
+
+.jobs-page .jobs-surface .ant-table-tbody {
+  transition: opacity 120ms ease;
+}
+
+/* 页面锁在视口内:工具条与「定时采集」常驻,执行记录占满剩余高度、自己滚动
+   （overflow:auto 兜底:定时配置很多时页面仍可滚动,不影响表格内滚） */
+.jobs-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--app-topbar-h) - 40px);
+  overflow: auto;
+}
+
+.jobs-page .jobs-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 320px;
+  margin-top: 16px;
+  border: 1px solid var(--src-border);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--src-shadow);
+  overflow: hidden;
+}
+
+.jobs-page .jobs-surface-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--src-border);
+}
+
+.jobs-page .jobs-surface-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--src-text-1);
+}
+
+.jobs-page .jobs-surface-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--src-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 表格吃满卡片剩余高度,表头吸顶在表格区顶部（sticky 的参照物是 .ant-table-content） */
+.jobs-page .jobs-surface > .ant-table-wrapper,
+.jobs-page .jobs-surface .ant-spin-nested-loading,
+.jobs-page .jobs-surface .ant-spin-container,
+.jobs-page .jobs-surface .ant-table,
+.jobs-page .jobs-surface .ant-table-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.jobs-page .jobs-surface .ant-table {
+  background: transparent;
+}
+.jobs-page .jobs-surface .ant-table-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* AntD 在 scroll.x 下把本元素写成行内 `overflow: auto hidden`;overflow-y:hidden 的盒子
+     能被 scrollTop 编程滚动、却吞掉滚轮与触控(用户视角就是「滚不动」),
+     这里必须用 !important 压过行内样式,让表体真正可滚(信源池同一处修复) */
+  overflow: auto !important;
+}
+
+/* 表体:表头单独一档浅底,数据行之间用极浅分隔线,行高一致便于纵向扫读 */
+.jobs-page .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #fafbfc;
+  border-bottom: 1px solid var(--src-border);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--src-text-2);
+}
+.jobs-page .ant-table-thead > tr > th::before {
+  display: none;
+}
+.jobs-page .ant-table-thead > tr > th {
+  padding-block: 10px;
+}
+/* 行高:成功行落在 56px 的基线（与信源池 68 的行密度接近但更紧凑）,
+   失败行因为有「失败原因」第二行自然长高 —— 信息量与高度一起表达异常 */
+.jobs-page .ant-table-tbody > tr > td {
+  height: 56px;
+  padding-block: 10px;
+}
+.jobs-page .ant-table-tbody > tr > td {
+  font-size: 13px;
+  color: var(--src-text-2);
+}
+.jobs-page .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: #fafcff;
+}
+
+/* 状态徽标:圆点 + 文字,失败才用红 —— 与信源池的 src-badge 同一套语言 */
+.jobs-page .jobs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--src-text-2);
+  white-space: nowrap;
+}
+.jobs-page .jobs-badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c2c9d2;
+}
+.jobs-page .jobs-badge.is-failed {
+  color: #cf1322;
+  font-weight: 600;
+}
+.jobs-page .jobs-badge.is-failed i {
+  background: var(--src-danger);
+}
+.jobs-page .jobs-badge.is-running i {
+  background: var(--src-accent);
+}
+.jobs-page .jobs-badge.is-pending i,
+.jobs-page .jobs-badge.is-cancelled i {
+  background: #faad14;
+}
+
+/* 配置摘要:主行说明「跑的什么」,失败行补一行原因 —— 不用展开就能判断要不要动手 */
+.jobs-page .jobs-config {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.jobs-page .jobs-config-line.ant-typography {
+  margin-bottom: 0;
+  font-size: 12.5px;
+  color: var(--src-text-2);
+}
+.jobs-page .jobs-error-line.ant-typography {
+  margin-bottom: 0;
+  font-size: 12px;
+  color: #cf1322;
+}
+
+/* 时间与耗时:等宽数字右对齐,列与列之间能直接比大小 */
+.jobs-page .jobs-time,
+.jobs-page .jobs-duration {
+  font-variant-numeric: tabular-nums;
+}
+.jobs-page .jobs-duration {
+  display: inline-block;
+  min-width: 48px;
+  text-align: right;
+  color: var(--src-text-1);
+}
+
+/* 任务 ID 是技术标识,不是注意力对象:中性等宽字,复制图标悬停/聚焦才浮现 */
+.jobs-page .jobs-id.ant-typography {
+  margin-bottom: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--src-text-3);
+}
+.jobs-page .jobs-id .ant-typography-copy {
+  margin-inline-start: 4px;
+  color: var(--src-text-3);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.jobs-page .ant-table-tbody > tr.ant-table-row:hover .jobs-id .ant-typography-copy,
+.jobs-page .jobs-id:focus-within .ant-typography-copy {
+  opacity: 1;
+}
+
+/* 成功行只留一个图标按钮,悬停才浮出底色;行内的操作永远不抢内容 */
+.jobs-page .sched-danger-btn.ant-btn {
+  color: var(--src-text-3);
+}
+.jobs-page .sched-danger-btn.ant-btn:hover {
+  background: #fff1f0;
+  color: #cf1322;
+}
+.jobs-page .jobs-icon-btn.ant-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--src-text-3);
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.jobs-page .ant-table-tbody > tr.ant-table-row:hover .jobs-icon-btn.ant-btn,
+.jobs-page .jobs-icon-btn.ant-btn:focus-visible {
+  opacity: 1;
+}
+.jobs-page .jobs-icon-btn.ant-btn:hover {
+  background: #f2f4f7;
+  color: var(--src-text-1);
 }
 
 /* ── 素材池:分数锚点 + 自适应列宽的卡片流 ─────────────────────

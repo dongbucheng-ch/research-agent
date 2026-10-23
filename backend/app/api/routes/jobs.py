@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_executor, session_dep
@@ -18,6 +20,8 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 async def list_jobs(
     kind: str | None = None,
     status: str | None = None,
+    q: str | None = None,
+    since_hours: int | None = None,
     page: int = 1,
     page_size: int = 20,
     session: AsyncSession = Depends(session_dep),
@@ -29,6 +33,15 @@ async def list_jobs(
         stmt = stmt.where(JobRun.kind == kind)
     if status:
         stmt = stmt.where(JobRun.status == status)
+    if q:
+        # 关键词:任务 ID 前缀,或配置 JSON 里的文本(研究方向 / 关键词等)
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(cast(JobRun.id, Text).ilike(like), cast(JobRun.params, Text).ilike(like))
+        )
+    if since_hours:
+        since = datetime.now(UTC) - timedelta(hours=int(since_hours))
+        stmt = stmt.where(JobRun.created_at >= since)
     total = await session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     rows = list(await session.scalars(stmt.offset((page - 1) * page_size).limit(page_size)))
     return Page(items=[JobOut.model_validate(row) for row in rows], total=total)

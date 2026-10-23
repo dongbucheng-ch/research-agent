@@ -296,7 +296,16 @@ export default function JobDetail({ job }: { job: JobRun }) {
         {
           key: 'log',
           label: '日志',
-          children: <JobLogViewer log={job.log} />,
+          children: (
+            <JobLogViewer
+              log={job.log}
+              highlightSeverity
+              showLineNumbers
+              toolbar
+              running={job.status === 'running' || job.status === 'pending'}
+              filename={`job-${job.id.slice(0, 8)}.log`}
+            />
+          ),
         },
       ]}
     />
