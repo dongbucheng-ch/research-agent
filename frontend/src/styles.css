@@ -1,5 +1,99 @@
+/* 顶栏基准高度:侧栏品牌区与内容区面包屑条同高,顶部形成一条横向基准线 */
+:root {
+  --app-topbar-h: 56px;
+  /* 滚动条:全站统一尺寸 + 两套低透明度配色(浅底 / 深底) */
+  --scroll-size: 10px;
+  --scroll-inset: 3px;
+  --scroll-thumb: rgba(15, 23, 42, 0.08);
+  --scroll-thumb-hover: rgba(15, 23, 42, 0.16);
+  --scroll-thumb-active: rgba(15, 23, 42, 0.24);
+  --scroll-thumb-on-dark: rgba(226, 236, 255, 0.12);
+  --scroll-thumb-on-dark-hover: rgba(226, 236, 255, 0.22);
+  --scroll-thumb-on-dark-active: rgba(226, 236, 255, 0.32);
+}
+
 * {
   box-sizing: border-box;
+}
+
+html {
+  /* 刷新后数据到达会凭空长出滚动条:槽位常驻,页面宽度不随内容变化重排 */
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
+/* AntD 的 Table 在根节点上设了 scrollbar-color(可继承,值 rgba(0,0,0,.25)/rgba(5,5,5,.06));
+   Chromium 只要见到这个属性不是 auto,就对整棵子树弃用 ::-webkit-scrollbar,退回 15px
+   原生滚动条 —— 表格里的滚动容器(例:任务日志面板)宽度和颜色就都跟全站对不上了。
+   AntD 那条规则写作 :where(…).ant-table-wrapper .ant-table(特异性 0,2,0),
+   这里加 html 前缀抬到 0,2,1,和样式注入顺序无关地稳定复位。 */
+html .ant-table-wrapper .ant-table {
+  scrollbar-color: auto;
+}
+
+/* ── 滚动条:全局统一宽度 + 近乎隐形的圆角滑块 ──────────────
+   宽度/内缩/色值都取自上面的 :root 变量,深浅表面只换颜色;
+   静止态几乎看不见,悬停容器才浮出来,不抢内容注意力。
+   注意:Chromium ≥121 只要元素上出现 scrollbar-width / scrollbar-color,
+   就会整块弃用 ::-webkit-scrollbar,退回「原生浅灰轨道 + 原生灰滑块」,
+   于是卡片右缘会多出一条比底色略深的凹槽,宽度也和别处对不齐。
+   所以标准属性只在下面的 Firefox 分支里写,Chromium 一律走伪元素。 */
+*::-webkit-scrollbar {
+  width: var(--scroll-size);
+  height: var(--scroll-size);
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track-piece,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  /* 透明描边做内缩:视觉宽度 = --scroll-size - 2 × --scroll-inset */
+  border: var(--scroll-inset) solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--scroll-thumb);
+}
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb-hover);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-thumb-active);
+}
+*::-webkit-scrollbar-button {
+  display: none;
+}
+/* 深色表面(代码块 / 终端):同尺寸,换成浅色滑块,否则浅灰条在深底上看不见 */
+.job-log::-webkit-scrollbar-thumb,
+.job-log-viewer::-webkit-scrollbar-thumb,
+.pool-page .output-code::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb-on-dark);
+}
+.job-log:hover::-webkit-scrollbar-thumb,
+.job-log-viewer:hover::-webkit-scrollbar-thumb,
+.pool-page .output-code:hover::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb-on-dark-hover);
+}
+.job-log::-webkit-scrollbar-thumb:hover,
+.job-log-viewer::-webkit-scrollbar-thumb:hover,
+.pool-page .output-code::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scroll-thumb-on-dark-active);
+}
+/* Firefox 用标准属性;设了它 Chromium 会忽略 ::-webkit-*,所以只发给 FF */
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(15, 23, 42, 0.22) transparent;
+  }
+  .job-log,
+  .job-log-viewer,
+  .output-code {
+    scrollbar-color: var(--scroll-thumb-on-dark-hover) transparent;
+  }
+  /* 抵消上面的 AntD 复位,FF 里表格滚动的观感与别处保持一致 */
+  html .ant-table-wrapper .ant-table {
+    scrollbar-color: rgba(15, 23, 42, 0.22) transparent;
+  }
 }
 
 body {
@@ -11,7 +105,8 @@ body {
 }
 
 .app-sider {
-  border-inline-end: 1px solid #f0f0f0;
+  border-inline-end: 1px solid #e6e8eb;
+  box-shadow: 2px 0 8px rgba(15, 23, 42, 0.04);
 }
 
 .app-sider .ant-layout-sider-children {
@@ -21,16 +116,138 @@ body {
 
 .app-sider .ant-menu {
   border-inline-end: 0;
+  padding-block: 8px;
 }
 
 .app-brand {
-  padding: 16px 20px 12px;
-  font-weight: 600;
-  font-size: 16px;
-  color: #1f1f1f;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
+  height: var(--app-topbar-h);
+  padding: 0 20px;
+  border-bottom: 1px solid #e6e8eb;
+  font-weight: 600;
+  font-size: 15px;
+  color: #1f1f1f;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.app-brand-mark {
+  flex: none;
+  color: #1677ff;
+}
+
+.app-brand-version {
+  margin-inline-start: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: #8c8c8c;
+}
+
+.app-sider.ant-layout-sider-collapsed .app-brand {
+  justify-content: center;
+  padding: 0;
+}
+
+.app-sider.ant-layout-sider-collapsed .app-brand-text,
+.app-sider.ant-layout-sider-collapsed .app-brand-version {
+  display: none;
+}
+
+/* 分组标题：12px/500，与图标列对齐 */
+.app-sider .ant-menu-item-group-title {
+  padding: 12px 28px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+.app-sider.ant-layout-sider-collapsed .ant-menu-item-group-title {
+  display: none;
+}
+
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 折叠态：label 被 AntD 隐藏，用「信息点」保留导航层状态提示 */
+.app-sider.ant-layout-sider-collapsed .app-nav-badge-info .ant-menu-item-icon {
+  position: relative;
+}
+
+.app-sider.ant-layout-sider-collapsed .app-nav-badge-info .ant-menu-item-icon::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  inset-inline-end: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #ffffff;
+}
+
+.app-sider.ant-layout-sider-collapsed .app-nav-badge-info .ant-menu-item-icon::after {
+  background-color: #1677ff;
+}
+
+
+/* 菜单项状态：选中 = 主色底 + 左侧 3px 指示条；悬停 = 4% 主色底 */
+.app-sider .ant-menu-item,
+.app-sider .ant-menu-item a {
+  transition:
+    background-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-sider .ant-menu-light.ant-menu-root .ant-menu-item-selected {
+  color: #0958d9;
+  background-color: #e6f4ff;
+}
+
+.app-sider .ant-menu-light.ant-menu-root .ant-menu-item-selected::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background-color: #0958d9;
+}
+
+.app-sider
+  .ant-menu-light.ant-menu-root
+  .ant-menu-item:not(.ant-menu-item-selected):hover {
+  background-color: rgba(22, 119, 255, 0.04);
+}
+
+.app-sider .ant-menu-item:focus-visible {
+  outline: 2px solid #1677ff;
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sider .ant-menu-item,
+  .app-sider .ant-menu-item a {
+    transition: none;
+  }
 }
 
 .page-body {
@@ -39,9 +256,50 @@ body {
   width: 100%;
 }
 
-.feed-toolbar {
-  margin-bottom: 16px;
+/* 日报双栏是「卡内滚动」的固定高度布局:内容卡与右卡一起撑满首屏,
+   页面本身不滚动,底部的 40px 收成 16px 让两张卡的底边刚好落在视口内 */
+.page-body:has(.output-detail) {
+  padding-bottom: 16px;
 }
+
+/* 信源池同样是固定视口布局:底部留白收成 20px */
+.page-body:has(.sources-page) {
+  padding-bottom: 20px;
+}
+
+/* 素材池同为固定视口布局:工具条与分页常驻,只有卡片列表内部滚动 */
+.page-body:has(.mat-page) {
+  padding-bottom: 20px;
+}
+
+/* 任务中心同为固定视口布局:执行记录占满剩余高度,底部留白收成 20px */
+.page-body:has(.jobs-page) {
+  padding-bottom: 20px;
+}
+
+/* 面包屑:内容区顶部定位条(高度与侧栏品牌区一致,层级=导航组/页面/页签) */
+.app-crumb-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  height: var(--app-topbar-h);
+  padding: 0 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e6e8eb;
+  font-size: 13px;
+}
+.app-crumb-bar .ant-breadcrumb-link {
+  color: #8c8c8c;
+}
+.app-crumb-bar li:last-child .ant-breadcrumb-link {
+  color: #26292e;
+}
+.app-crumb-bar .ant-breadcrumb-separator {
+  color: #c1c7d0;
+}
+
 
 .run-status-line {
   padding: 2px 0;

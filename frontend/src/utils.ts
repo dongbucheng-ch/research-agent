@@ -21,12 +21,27 @@ export function digestBatch(digest: Digest, all: Digest[]): DigestBatch {
   return { date, index: index >= 0 ? index + 1 : 1 }
 }
 
+/**
+ * 分数色阶:颜色只用来提示「需要关注」,高分保持中性。
+ * 分档:≥80 中性 / 65–79 琥珀 / <65 红。抽屉评分条、信源池均分、素材卡共用同一套,
+ * 避免「按分排序时整页都是红字」这种显著性通胀。
+ * 未评分(无分数)算「未知」不算「低分」,同样给中性色,避免空值被读成坏信号。
+ */
+export function scoreHex(total: number | null | undefined): string {
+  const value = Number(total)
+  if (total === null || total === undefined || !Number.isFinite(value)) return '#4b5563'
+  if (value >= 80) return '#4b5563'
+  if (value >= 65) return '#d46b08'
+  return '#cf1322'
+}
+
+/** 与 scoreHex 同档的 AntD 语义名(default = 中性,沿用组件自身颜色) */
 export function scoreColor(total: number | null | undefined): string {
-  const value = total ?? 0
-  if (value >= 80) return 'red'
+  const value = Number(total)
+  if (total === null || total === undefined || !Number.isFinite(value)) return 'default'
+  if (value >= 80) return 'default'
   if (value >= 65) return 'orange'
-  if (value >= 50) return 'blue'
-  return 'default'
+  return 'red'
 }
 
 export function formatTime(value?: string | null): string {
