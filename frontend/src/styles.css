@@ -2062,6 +2062,362 @@ body {
   transform: rotate(90deg);
 }
 
+/* ── 信源池:百级信源的可运维表格 ──────────────────────────────
+   语言与素材池一致:白卡 + 大圆角 + 柔和投影;行只表达一件事——
+   「这个信源健康吗、近 30 天有没有产出」,低频操作 hover 才现身。 */
+/* 运维页(信源池 / 任务中心)共用一套令牌:同一张白卡、同一组文字灰阶与强调色 */
+.sources-page,
+.jobs-page {
+  --src-border: #eef0f3;
+  --src-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 12px 32px -18px rgba(16, 24, 40, 0.22);
+  --src-text-1: #16181d;
+  --src-text-2: #4b5563;
+  --src-text-3: #5b6472;
+  --src-accent: #1677ff;
+  --src-danger: #f5222d;
+  --src-warn: #d46b08;
+}
+
+.sources-page {
+  /* 表格区自己滚动:页面高度锁在视口内,列名与分页始终可见
+     必须是确定高度而非 min-height,否则 flex 子项会被内容撑开、min-height:0 不生效 */
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--app-topbar-h) - 40px);
+}
+
+.sources-page .src-surface {
+  border: 1px solid var(--src-border);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--src-shadow);
+}
+
+/* 工具区:左筛选右动作,统计条给下面每一行的判断提供锚点 */
+.sources-page .src-toolbar {
+  padding: 12px 16px 0;
+}
+.sources-page .src-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 32px;
+}
+.sources-page .src-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 0 12px;
+  border-top: 1px solid #f4f6f9;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--src-text-2);
+}
+.sources-page .src-stat b {
+  font-weight: 600;
+  color: var(--src-text-1);
+  font-variant-numeric: tabular-nums;
+}
+.sources-page .src-stat.is-alert b {
+  color: var(--src-danger);
+}
+.sources-page .src-stat.is-warn b {
+  color: var(--src-warn);
+}
+.sources-page .src-muted {
+  color: var(--src-text-3);
+}
+
+/* 表格卡:卡片吃满剩余高度,表格区自己滚动,表头吸顶在表格区顶部
+   注意:th 的 sticky 参照物是最近的滚动容器 .ant-table-content(AntD 开启 scroll.x 时
+   它才是滚动容器),所以偏移必须是 0;写视口偏移会被当成「距容器顶 56px」而下推 */
+.sources-page .src-table {
+  margin-top: 12px;
+}
+.sources-page .src-table,
+.sources-page .src-table .ant-table-wrapper,
+.sources-page .src-table .ant-spin-nested-loading,
+.sources-page .src-table .ant-spin-container,
+.sources-page .src-table .ant-table,
+.sources-page .src-table .ant-table-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.sources-page .src-table .ant-table-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* 同任务中心:压过 AntD 行内 `overflow: auto hidden`,否则滚轮滚不动表体 */
+  overflow: auto !important;
+}
+.sources-page .src-table .ant-table-pagination.ant-pagination {
+  flex: none;
+}
+.sources-page .ant-table {
+  background: transparent;
+  font-size: 13px;
+}
+.sources-page .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #ffffff;
+  border-bottom: 1px solid var(--src-border);
+  color: var(--src-text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+/* 去掉列间竖线,只留表头底线,让行更像「一条记录」而不是网格 */
+.sources-page .ant-table-thead > tr > th::before {
+  display: none;
+}
+.sources-page .ant-table-thead > tr > th:first-child {
+  border-start-start-radius: 16px;
+}
+.sources-page .ant-table-thead > tr > th:last-child {
+  border-start-end-radius: 16px;
+}
+/* 行高:两行文本 + 24px 内边距 ≈ 62px(原 99px),首屏可见行数接近翻倍 */
+/* 行高写死 68px:行的几何与「统计是否已加载」解耦,
+   数据补齐时不会因为多出一行健康度而让整表上下位移(刷新抖动的根因之一) */
+.sources-page .ant-table-tbody > tr.ant-table-row > td {
+  height: 68px;
+}
+.sources-page .ant-table-tbody > tr > td {
+  padding-block: 12px;
+  border-bottom: 1px solid #f5f7fa;
+}
+.sources-page .ant-table-tbody > tr.ant-table-row:hover > td {
+  background: #fafcff;
+}
+.sources-page .ant-empty {
+  padding: 48px 0;
+}
+
+/* 异常行:只用极浅底色,不做左侧色条(状态靠「状态」列的圆点徽标表达) */
+.sources-page .ant-table-tbody > tr.src-row.is-failed > td {
+  background: #fffbfb;
+}
+.sources-page .ant-table-tbody > tr.src-row.is-failed:hover > td {
+  background: #fff5f4;
+}
+.sources-page .ant-table-tbody > tr.src-row.is-paused .src-name-title,
+.sources-page .ant-table-tbody > tr.src-row.is-paused .src-health-num {
+  color: var(--src-text-3);
+}
+
+/* 单元格内容 */
+.sources-page .src-name-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--src-text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sources-page .src-name-meta {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--src-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sources-page .src-channel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+.sources-page .src-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #f4f6f9;
+  color: var(--src-text-2);
+  font-size: 12px;
+  line-height: 20px;
+}
+.sources-page .src-tier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #f4f6f9;
+  color: var(--src-text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sources-page .src-tier.is-s {
+  background: #fff1f0;
+  color: #cf1322;
+}
+.sources-page .src-tier.is-a {
+  background: #eaf3ff;
+  color: var(--src-accent);
+}
+.sources-page .src-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--src-text-2);
+  white-space: nowrap;
+}
+.sources-page .src-badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c2c9d2;
+}
+.sources-page .src-badge.is-failed {
+  color: #cf1322;
+  font-weight: 600;
+}
+.sources-page .src-badge.is-failed i {
+  background: var(--src-danger);
+}
+.sources-page .src-badge.is-stale i,
+.sources-page .src-badge.is-idle i {
+  background: #faad14;
+}
+.sources-page .src-health {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sources-page .src-health-top {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sources-page .src-bar {
+  flex: 0 1 84px;
+  min-width: 36px;
+  height: 6px;
+  border-radius: 999px;
+  background: #eef1f5;
+  overflow: hidden;
+}
+.sources-page .src-bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--src-accent);
+}
+.sources-page .src-bar > i.is-zero {
+  background: #d9dee6;
+}
+.sources-page .src-health-num {
+  font-size: 12.5px;
+  color: var(--src-text-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sources-page .src-health-bottom {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.sources-page .src-score {
+  font-weight: 600;
+  color: var(--src-text-2);
+  font-variant-numeric: tabular-nums;
+}
+.sources-page .src-score.is-red {
+  color: #cf1322;
+}
+.sources-page .src-score.is-orange {
+  color: var(--src-warn);
+}
+.sources-page .src-stale {
+  color: var(--src-warn);
+  font-weight: 600;
+}
+
+/* 操作列:常驻「查看素材」,低频与危险操作 hover / 键盘聚焦才现身 */
+.sources-page .src-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.sources-page .src-actions-more {
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.sources-page .ant-table-tbody > tr.ant-table-row:hover .src-actions-more,
+.sources-page .ant-table-tbody > tr.ant-table-row:focus-within .src-actions-more {
+  opacity: 1;
+}
+.sources-page .src-icon-btn.ant-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #e7eaf0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--src-text-2);
+  box-shadow: none;
+}
+.sources-page .src-icon-btn.ant-btn:not(:disabled):hover {
+  border-color: var(--src-accent);
+  background: #ffffff;
+  color: var(--src-accent);
+}
+.sources-page .src-icon-btn.is-danger.ant-btn:not(:disabled):hover {
+  border-color: var(--src-danger);
+  color: var(--src-danger);
+}
+.sources-page .src-icon-btn.ant-btn:disabled {
+  border-color: #eef0f3;
+  background: #fafbfc;
+}
+
+/* 展开行:URL / 最近错误 / 采集参数 */
+.sources-page .ant-table-tbody > tr.src-row-expanded > td {
+  background: #fcfdfe;
+  font-size: 12px;
+  color: var(--src-text-2);
+}
+.sources-page .src-expand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* 与信源名对齐:展开行的 td 内有 16 内边距,再补 32 与名字列文字起点(卡片左沿 + 48)齐平 */
+  padding-left: 32px;
+  /* URL / 报错里常有一整条不可断的长串(auto<table 的 min-content 会被它撑爆,
+     展开后整张表会横向溢出卡片),这里强制任意位置可断行 */
+  overflow-wrap: anywhere;
+}
+.sources-page .src-expand-error {
+  color: #cf1322;
+}
+
+.sources-page .src-table .ant-table-pagination.ant-pagination {
+  margin: 12px 16px;
+}
+
+
 /* ── 任务中心:执行记录 ──────────────────────────────────────────
    与信源池同一套卡片语言:白卡 + 16 圆角 + 柔和投影;表头常驻、内部滚动。
    显著性预算:页面上只有「生成日报」一个实心主按钮;失败行给原因与动作,
