@@ -32,10 +32,23 @@ class ProgressFlusher:
         self._lines = lines
         self._coalesce = coalesce_seconds
         self._pending: dict[str, Any] | None = None
+        self._dirty = False
         self._task: asyncio.Task | None = None
 
     def push(self, progress: dict[str, Any]) -> None:
         self._pending = progress
+        self._spawn()
+
+    def touch(self) -> None:
+        """仅日志行有变化时也落库。
+
+        digest / article / push 没有 StageTracker,原先只有任务结束才写 ``job.log``,
+        运行中前端读到的是 NULL(显示「无日志」)。这里让日志行按同样的节流节奏实时写回。
+        """
+        self._dirty = True
+        self._spawn()
+
+    def _spawn(self) -> None:
         if self._task is None or self._task.done():
             try:
                 loop = asyncio.get_running_loop()
@@ -46,7 +59,8 @@ class ProgressFlusher:
     async def _flush(self) -> None:
         await asyncio.sleep(self._coalesce)
         payload, self._pending = self._pending, None
-        if payload is None:
+        dirty, self._dirty = self._dirty, False
+        if payload is None and not dirty:
             return
         try:
             async with session_scope() as session:
@@ -54,16 +68,17 @@ class ProgressFlusher:
                 if job is None or job.status not in ACTIVE_STATUSES:
                     return
                 job.log = "\n".join(self._lines[-500:])
-                merged = dict(job.result or {})
-                merged["progress"] = payload
-                job.result = merged
+                if payload is not None:
+                    merged = dict(job.result or {})
+                    merged["progress"] = payload
+                    job.result = merged
                 await session.commit()
         except Exception:  # noqa: BLE001 - 进度写失败不影响任务本身
             logger.debug("job %s progress flush failed", self._job_id, exc_info=True)
         finally:
-            if self._pending is not None:
+            if self._pending is not None or self._dirty:
                 self._task = None
-                self.push(self._pending)
+                self._spawn()
 
 
 class JobExecutor:
@@ -132,6 +147,8 @@ class JobExecutor:
                 lines.append(message)
                 if tracker is not None:
                     tracker.note(message)
+                # 所有任务类型都让日志行实时落库(fetch 另有 tracker 进度快照)。
+                flusher.touch()
                 logger.info("[job %s] %s", job_id, message)
 
             try:

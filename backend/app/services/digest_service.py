@@ -73,6 +73,11 @@ async def run_digest(
     github_limit = max(GITHUB_MIN, min(int(github_count or GITHUB_DEFAULT), GITHUB_MAX))
     now = datetime.now(UTC)
     since = now - timedelta(hours=int(period_hours))
+    # 第一行就给出本轮参数:日报要跑几十秒,前端靠这行确认任务确实在推进。
+    log(
+        f"[配置] {'定向' if scope == 'topic' else '全局'}模式 · 窗口 {int(period_hours)}h · "
+        f"门槛 {int(min_score)} 分 · 资讯 {limit} 条 · GitHub {github_limit} 条"
+    )
 
     llm = LLMClient.from_config(await get_llm_config(session))
     search_words = list(words)
@@ -94,9 +99,11 @@ async def run_digest(
     briefs = [_item_brief(item, rank=rank) for item, rank in ranked[: max(limit * 3, limit + 8)]]
     log(f"[召回] 召回 {len(candidates)} 条 → 排序取 {len(briefs)} 条进入生成")
 
+    log("[召回] 拉取 GitHub 今日热榜…")
     github_items = await _safe_github_today(search_words, github_limit, github_language, log)
 
     if llm is not None:
+        log(f"[生成] 调用 LLM({llm.model})生成日报…")
         try:
             payload = await _generate_with_llm(
                 llm,
