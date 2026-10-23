@@ -11,7 +11,7 @@ import {
   Button,
   Card,
   Checkbox,
-  Descriptions,
+  Drawer,
   Empty,
   Form,
   Input,
@@ -22,16 +22,16 @@ import {
   Space,
   Spin,
   Table,
+  Tabs,
   Tag,
   Typography,
   message,
 } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import { api } from '../api/client'
 import type { JobRun, Source } from '../api/types'
+import JobLogViewer from '../components/JobLogViewer'
 import PipelineBoard from '../components/PipelineBoard'
 import type { PipelineStage, StageState } from '../components/PipelineBoard'
 import StageTable, { readStagesFromJob } from '../components/StageTable'
@@ -84,6 +84,10 @@ const CARD_STAGE_KEYS: Record<string, string[]> = {
 
 const CARD_ORDER = ['config', 'collect', 'normalize', 'enrich', 'store'] as const
 
+/** 表格标签配色:AntD 状态预设色在浅底上仅 1.8–3.3:1,这里换成达标的自定义色。 */
+const TAG_STYLE_OK = { color: '#237804', background: '#f6ffed', borderColor: '#b7eb8f' }
+const TAG_STYLE_WARN = { color: '#b45309', background: '#fff7e6', borderColor: '#ffd591' }
+
 function cardState(stages: StageInfo[], keys: string[], legacy: StageState): StageState {
   if (!stages.length) return legacy
   const group = stages.filter((stage) => keys.includes(stage.key))
@@ -114,6 +118,11 @@ function sourceDetailsFromJob(job?: JobRun | null): SourceDetail[] {
     (row): row is SourceDetail =>
       !!row && typeof row === 'object' && typeof (row as SourceDetail).name === 'string',
   )
+}
+
+/** 信源异常:抓取报错,或一条都没抓到——这是「为什么结果少」的主要解释。 */
+function isSourceAnomaly(row: SourceDetail): boolean {
+  return Boolean(row.error) || Number(row.fetched ?? 0) === 0
 }
 
 interface IngestLine {
@@ -197,6 +206,8 @@ export default function CollectPage() {
   const [form] = Form.useForm<CollectForm>()
   const [jobId, setJobId] = useState<string | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
+  const [logOpen, setLogOpen] = useState(false)
+  const [sourcesOnlyAnomaly, setSourcesOnlyAnomaly] = useState(true)
 
   const { data: sources } = useQuery({
     queryKey: ['sources'],
@@ -321,6 +332,20 @@ export default function CollectPage() {
   const enrichStageInfo = stageInfos.find((stage) => stage.key === 'enrich')
   const enrichCounters = (enrichStageInfo?.counters ?? {}) as Record<string, unknown>
   const sourceDetails = useMemo(() => sourceDetailsFromJob(job), [job])
+  const anomalySources = useMemo(() => sourceDetails.filter(isSourceAnomaly), [sourceDetails])
+  const errorSources = useMemo(() => sourceDetails.filter((row) => Boolean(row.error)), [sourceDetails])
+  const emptySources = useMemo(
+    () => sourceDetails.filter((row) => !row.error && Number(row.fetched ?? 0) === 0),
+    [sourceDetails],
+  )
+  const orderedSources = useMemo(
+    () =>
+      [...sourceDetails].sort(
+        (left, right) => Number(isSourceAnomaly(right)) - Number(isSourceAnomaly(left)),
+      ),
+    [sourceDetails],
+  )
+  const visibleSources = sourcesOnlyAnomaly ? anomalySources : orderedSources
   const liveStage = stageInfos.find((stage) => stage.status === 'running')
   const legacyStates = useMemo(() => legacyStageStates(job), [job])
   const states = CARD_ORDER.map((key, index) =>
@@ -370,17 +395,31 @@ export default function CollectPage() {
     keyword_translations?: Record<string, string[]>
   }
   const typedKeywords = ((job?.params?.keywords as string[]) ?? []).filter(Boolean)
+  const jobExcludeWords = ((job?.params?.exclude_keywords as string[]) ?? []).filter(Boolean)
   const translatedKeywords = (specInfo.keywords ?? []).filter(
     (word) => !typedKeywords.includes(word),
   )
   const expandedKeywords = backfillInfo?.keywords ?? []
+  /** 本次运行实际用到的检索词(输入 + LLM 翻译 + 辐射词),去重后的并集 */
+  const actualKeywords = Array.from(
+    new Set([...typedKeywords, ...translatedKeywords, ...expandedKeywords]),
+  )
   const backfillSkipReasons: Record<string, string> = {
     llm_unavailable: 'LLM 未配置',
     no_expanded_keywords: '未生成辐射词',
     all_sources_failed: '信源全部失败',
   }
-  const scrollTo = (id: string) =>
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  /** 报告不再常驻页面,改为按需导出。 */
+  const exportReport = () => {
+    if (!navigator.clipboard) {
+      message.warning('当前环境不支持自动复制,请手动选择报告文本')
+      return
+    }
+    navigator.clipboard.writeText(report).then(
+      () => message.success('已复制 Markdown 报告'),
+      () => message.error('复制失败,请手动选择报告文本'),
+    )
+  }
   const llmUsage = (result.llm_usage ?? {}) as {
     calls?: number
     prompt_tokens?: number
@@ -400,6 +439,12 @@ export default function CollectPage() {
     .filter(Boolean)
     .join(' · ')
 
+  /** 主行动 = 流水线中第一个尚未成功的环节;全部成功时把收尾动作(入库产出)作为主行动。 */
+  const nextActionIndex = (() => {
+    const index = states.findIndex((state) => state !== 'success')
+    return index === -1 ? states.length - 1 : index
+  })()
+
   const stages: PipelineStage[] = [
     {
       key: 'config',
@@ -410,7 +455,19 @@ export default function CollectPage() {
       icon: <SettingOutlined />,
       state: states[0],
       stats: [
-        { label: '关键词', value: formKeywords.length },
+        {
+          label: job ? '本次关键词' : '关键词',
+          value: (
+            <span
+              title={
+                actualKeywords.length ? actualKeywords.join('、') : '尚未采集,暂按表单中的关键词计数'
+              }
+            >
+              {actualKeywords.length || formKeywords.length}
+            </span>
+          ),
+          primary: true,
+        },
         { label: '回看窗口', value: `${cfgLookback}h` },
         { label: '入库门槛', value: cfgMinScore },
       ],
@@ -432,13 +489,13 @@ export default function CollectPage() {
       icon: <ApiOutlined />,
       state: states[1],
       stats: [
-        { label: '抓取', value: fetched },
+        { label: '抓取', value: fetched, primary: true },
         { label: '信源', value: numberOf(result.sources) },
         { label: '失败源', value: failedSources },
       ],
       action: {
         label: '查看日志',
-        onClick: () => scrollTo('collect-log'),
+        onClick: () => setLogOpen(true),
         disabled: !job?.log,
       },
       note:
@@ -454,11 +511,11 @@ export default function CollectPage() {
       icon: <FilterOutlined />,
       state: states[2],
       stats: [
+        { label: '候选', value: Math.max(fetched - duplicates - filtered, 0), primary: true },
         { label: '去重', value: duplicates },
         { label: '过滤', value: filtered },
-        { label: '候选', value: Math.max(fetched - duplicates - filtered, 0) },
       ],
-      action: { label: '查看报告', onClick: () => scrollTo('collect-report'), disabled: !report },
+      action: { label: '导出报告', onClick: exportReport, disabled: !report },
       note:
         stageNote(stageInfos, CARD_STAGE_KEYS.normalize) ??
         (job?.log ? '标准化明细见运行日志' : '随采集任务自动执行'),
@@ -472,9 +529,9 @@ export default function CollectPage() {
       icon: <ThunderboltOutlined />,
       state: states[3],
       stats: [
+        { label: '均分', value: avgScore, primary: true },
         { label: '富化', value: numberOf(enrichCounters.done) || newItems },
         { label: 'Token', value: enrichTokens > 0 ? formatTokens(enrichTokens) : '—' },
-        { label: '均分', value: avgScore },
       ],
       action: {
         label: '生成日报',
@@ -493,7 +550,7 @@ export default function CollectPage() {
       icon: <DatabaseOutlined />,
       state: states[4],
       stats: [
-        { label: '本次入库', value: newItems },
+        { label: '本次入库', value: newItems, primary: true },
         { label: '低分跳过', value: lowScore },
         { label: '资讯流累计', value: overview?.items_total ?? '—' },
       ],
@@ -506,39 +563,27 @@ export default function CollectPage() {
         stageNote(stageInfos, CARD_STAGE_KEYS.store) ??
         (job?.finished_at ? `完成于 ${formatTime(job.finished_at)}` : '等待入库'),
     },
-  ]
+  ].map((stage, index) => ({
+    ...stage,
+    action: {
+      ...stage.action,
+      emphasis: index === nextActionIndex ? ('primary' as const) : ('default' as const),
+    },
+  }))
 
   return (
     <div>
-      <Space style={{ width: '100%', justifyContent: 'space-between' }} align="start">
-        <div>
-          <Typography.Title level={4} style={{ margin: 0 }}>
-            采集工作台
-          </Typography.Title>
-          <Typography.Text type="secondary">
-            输入研究方向关键词即可采集:去重 → 翻译 → 摘要 → 相关/热度/时效打分 → 入库
-          </Typography.Text>
-        </div>
-        <Space>
-          <Link to="/feed">
-            <Button>查看资讯流</Button>
-          </Link>
-        </Space>
-      </Space>
-
-      <div style={{ marginTop: 16 }}>
-        <PipelineBoard
-          title="研讯采集流水线"
-          tag={<Tag color="blue">{job?.params?.name ? String(job.params.name) : '未执行'}</Tag>}
-          schedule="手动触发;关键词即输即用,不保存预设"
-          refreshing={running}
-          onRefresh={() => {
-            queryClient.invalidateQueries({ queryKey: ['job', jobId] })
-            queryClient.invalidateQueries({ queryKey: ['jobs', 'fetch', 'latest'] })
-          }}
-          stages={stages}
-        />
-      </div>
+      <PipelineBoard
+        title="研讯采集流水线"
+        tag={<Tag color="blue">{job ? String(job.params?.name ?? '临时采集') : '未执行'}</Tag>}
+        schedule="手动触发;关键词即输即用,不保存预设"
+        refreshing={running}
+        onRefresh={() => {
+          queryClient.invalidateQueries({ queryKey: ['job', jobId] })
+          queryClient.invalidateQueries({ queryKey: ['jobs', 'fetch', 'latest'] })
+        }}
+        stages={stages}
+      />
 
       <Modal
         title="采集配置"
@@ -548,7 +593,7 @@ export default function CollectPage() {
         okText={job ? '重新采集' : '开始采集'}
         cancelText="取消"
         confirmLoading={startMutation.isPending}
-        okButtonProps={{ style: { background: STAGE_COLORS[0], borderColor: STAGE_COLORS[0] } }}
+        rootClassName="collect-config-modal"
         width={520}
         forceRender
       >
@@ -677,156 +722,162 @@ export default function CollectPage() {
         </Form>
       </Modal>
 
-      <Card
-        title="采集进度与结果"
-        style={{ marginTop: 16 }}
-        extra={
-          <Space>
-            {running && <Spin size="small" />}
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              日报可在流水线「富化打分」环节一键生成
-            </Typography.Text>
-          </Space>
-        }
+      <Drawer
+        title={`运行日志 · 任务 ${job?.id ? job.id.slice(0, 8) : ''}`}
+        placement="right"
+        width="min(880px, 92vw)"
+        open={logOpen}
+        onClose={() => setLogOpen(false)}
+        styles={{ body: { padding: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
       >
-        {!job ? (
-          <Empty description="还没有采集记录,填写关键词后点击「开始采集」" />
-        ) : (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            <Space wrap>
-              <Tag color={job.status === 'succeeded' ? 'green' : job.status === 'failed' ? 'red' : 'blue'}>
-                {job.status === 'succeeded' ? '已完成' : job.status === 'failed' ? '失败' : '进行中'}
-              </Tag>
-              <Typography.Text type="secondary">
-                任务 {job.id.slice(0, 8)} · 创建于 {job.created_at ? new Date(job.created_at).toLocaleString('zh-CN') : '-'}
+        <div className="job-log-run-meta">
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            方向 {String(job?.params?.name ?? '临时采集')} · 回看窗口{' '}
+            {String(job?.params?.lookback_hours ?? '-')} 小时 · 排除词{' '}
+            {jobExcludeWords.length ? jobExcludeWords.join(' / ') : '无'}
+          </Typography.Text>
+          {actualKeywords.length > 0 && (
+            <Space wrap size={4} align="center">
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                本次检索词:
               </Typography.Text>
-              <Typography.Text type="secondary">
-                耗时 {job.started_at && job.finished_at
-                  ? `${((new Date(job.finished_at).getTime() - new Date(job.started_at).getTime()) / 1000).toFixed(1)}s`
-                  : '-'}
-              </Typography.Text>
-            </Space>
-            {job.status === 'failed' && (
-              <Alert type="error" showIcon message="采集失败" description={String(job.result?.error ?? '')} />
-            )}
-            {running && liveStage && (
-              <Space size={8} wrap className="run-status-line">
-                <Spin size="small" />
-                <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-                  {liveStage.label}({stageInfos.indexOf(liveStage) + 1}/{stageInfos.length})
+              {typedKeywords.map((word) => (
+                <Tag key={word} color="blue" style={{ marginInlineEnd: 0 }}>
+                  {word}
                 </Tag>
+              ))}
+              {translatedKeywords.map((word) => (
+                <Tag key={word} style={{ marginInlineEnd: 0 }}>
+                  {word}
+                </Tag>
+              ))}
+              {translatedKeywords.length > 0 && (
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {liveStage.message || '执行中…'}
+                  (LLM 翻译)
                 </Typography.Text>
-              </Space>
-            )}
-            {emptyReason && <Alert type="warning" showIcon message="本次没有新增素材" description={emptyReason} />}
-            {(typedKeywords.length > 0 || expandedKeywords.length > 0) && (
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <Space wrap size={4} align="center">
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    实际检索词:
-                  </Typography.Text>
-                  {typedKeywords.map((word) => (
-                    <Tag key={word} color="blue" style={{ marginInlineEnd: 0 }}>
-                      {word}
-                    </Tag>
-                  ))}
-                  {translatedKeywords.map((word) => (
+              )}
+              {expandedKeywords.length > 0 && (
+                <>
+                  <Tag color="gold" style={{ marginInlineEnd: 0 }}>
+                    辐射词
+                  </Tag>
+                  {expandedKeywords.map((word) => (
                     <Tag key={word} style={{ marginInlineEnd: 0 }}>
                       {word}
                     </Tag>
                   ))}
-                  {translatedKeywords.length > 0 && (
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      (LLM 翻译)
-                    </Typography.Text>
-                  )}
-                  {expandedKeywords.length > 0 && (
-                    <>
-                      <Tag color="gold" style={{ marginInlineEnd: 0 }}>
-                        辐射词
-                      </Tag>
-                      {expandedKeywords.map((word) => (
-                        <Tag key={word} style={{ marginInlineEnd: 0 }}>
-                          {word}
-                        </Tag>
-                      ))}
-                    </>
-                  )}
-                </Space>
-                {backfillInfo && (
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {backfillInfo.skipped
-                      ? `未执行补量:${backfillSkipReasons[backfillInfo.skipped] ?? backfillInfo.skipped}`
-                      : `已自动补量一轮:补采抓取 ${backfillInfo.fetched ?? 0} 条、新增 ${backfillInfo.new_items ?? 0} 条`}
-                  </Typography.Text>
-                )}
-              </Space>
-            )}
-            {shortfallInfo && (
-              <Alert
-                type="warning"
-                showIcon
-                message={`素材不足:期望 ${shortfallInfo.expected} 条,实际 ${shortfallInfo.actual} 条`}
-                description="可放宽关键词、延长回看窗口或降低入库门槛后重采;日报/文章生成时会如实标注素材不足。"
-              />
-            )}
-            <Descriptions size="small" column={2} bordered>
-              <Descriptions.Item label="方向">
-                {String(job.params?.name ?? '临时采集')}
-              </Descriptions.Item>
-              <Descriptions.Item label="回看窗口">{String(job.params?.lookback_hours ?? '-')} 小时</Descriptions.Item>
-              <Descriptions.Item label="关键词">
-                {((job.params?.keywords as string[]) ?? []).map((word) => (
-                  <Tag key={word}>{word}</Tag>
-                ))}
-              </Descriptions.Item>
-              <Descriptions.Item label="排除词">
-                {((job.params?.exclude_keywords as string[]) ?? []).length
-                  ? ((job.params?.exclude_keywords as string[]) ?? []).map((word) => <Tag key={word}>{word}</Tag>)
-                  : '-'}
-              </Descriptions.Item>
-            </Descriptions>
-            <div className="job-log" id="collect-log">
-              {job.log || '等待日志…'}
-            </div>
-          </Space>
-        )}
-      </Card>
+                </>
+              )}
+            </Space>
+          )}
+          {backfillInfo && (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {backfillInfo.skipped
+                ? `未执行补量:${backfillSkipReasons[backfillInfo.skipped] ?? backfillInfo.skipped}`
+                : `已自动补量一轮:补采抓取 ${backfillInfo.fetched ?? 0} 条、新增 ${backfillInfo.new_items ?? 0} 条`}
+            </Typography.Text>
+          )}
+        </div>
+        <JobLogViewer
+          log={job?.log ?? ''}
+          highlightSeverity
+          showLineNumbers
+          toolbar
+          fill
+          running={job?.status === 'running' || job?.status === 'pending'}
+          filename={`job-${job?.id ? job.id.slice(0, 8) : 'log'}.log`}
+        />
+      </Drawer>
+
+      {(job?.status === 'failed' || running || emptyReason || shortfallInfo) && (
+        <div className="collect-alerts">
+          {job?.status === 'failed' && (
+            <Alert type="error" showIcon message="采集失败" description={String(job.result?.error ?? '')} />
+          )}
+          {running && liveStage && (
+            <Space size={8} wrap className="run-status-line">
+              <Spin size="small" />
+              <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+                {liveStage.label}({stageInfos.indexOf(liveStage) + 1}/{stageInfos.length})
+              </Tag>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {liveStage.message || '执行中…'}
+              </Typography.Text>
+            </Space>
+          )}
+          {emptyReason && (
+            <Alert type="warning" showIcon message="本次没有新增素材" description={emptyReason} />
+          )}
+          {shortfallInfo && (
+            <Alert
+              type="warning"
+              showIcon
+              message={`素材不足:期望 ${shortfallInfo.expected} 条,实际 ${shortfallInfo.actual} 条`}
+              description="可放宽关键词、延长回看窗口或降低入库门槛后重采;日报/文章生成时会如实标注素材不足。"
+            />
+          )}
+        </div>
+      )}
 
       {hasResult && (
         <Card
-          title="环节耗时与信源明细"
+          title="诊断"
           style={{ marginTop: 16 }}
           extra={
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              总耗时 {stageElapsed}
-            </Typography.Text>
+            job && (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                任务 {job.id.slice(0, 8)} · 创建于{' '}
+                {job.created_at ? new Date(job.created_at).toLocaleString('zh-CN') : '-'} · 耗时{' '}
+                {job.started_at && job.finished_at
+                  ? `${((new Date(job.finished_at).getTime() - new Date(job.started_at).getTime()) / 1000).toFixed(1)}s`
+                  : '-'}
+              </Typography.Text>
+            )
           }
         >
-          <StageTable stages={stageInfos} emptyText="该任务没有阶段数据(旧任务),重新采集即可看到每个环节的耗时" />
-          {sourceDetails.length > 0 && (
-            <Table<SourceDetail>
-              size="small"
-              rowKey="source_id"
-              style={{ marginTop: 16 }}
-              pagination={false}
-              dataSource={sourceDetails}
-              columns={[
+          <Tabs
+            defaultActiveKey="sources"
+            items={[
+              {
+                key: 'sources',
+                label: `信源明细 ${sourceDetails.length}`,
+                children:
+                  sourceDetails.length > 0 ? (
+                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                      <Space size={12} wrap>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          共 {sourceDetails.length} 个信源 · 失败 {errorSources.length} 个 · 空抓取{' '}
+                          {emptySources.length} 个 · {sourcesOnlyAnomaly ? '仅显示异常源' : '异常源已置顶'}
+                        </Typography.Text>
+                        <Checkbox
+                          checked={sourcesOnlyAnomaly}
+                          onChange={(event) => setSourcesOnlyAnomaly(event.target.checked)}
+                        >
+                          <Typography.Text style={{ fontSize: 12 }}>只看异常</Typography.Text>
+                        </Checkbox>
+                      </Space>
+                      <Table<SourceDetail>
+                        size="small"
+                        rowKey="source_id"
+                        /* 窄窗口(<680)时表格在卡片内横向滚动,而不是把页面撑出横向滚动条 */
+                        scroll={{ x: 680 }}
+                        dataSource={visibleSources}
+                        pagination={{
+                          pageSize: 10,
+                          size: 'small',
+                          showSizeChanger: false,
+                          hideOnSinglePage: true,
+                        }}
+                        columns={[
                 {
                   title: '信源',
                   dataIndex: 'name',
                   ellipsis: true,
                   render: (value: string, record) => (
-                    <span>
-                      {value}
-                      {record.round === 'backfill' && (
-                        <Tag color="gold" style={{ marginInlineStart: 6 }}>
-                          补量
-                        </Tag>
-                      )}
-                    </span>
+                    <Space size={6}>
+                      <Link to="/sources">{value}</Link>
+                      {record.round === 'backfill' && <Tag style={TAG_STYLE_WARN}>补量</Tag>}
+                    </Space>
                   ),
                 },
                 {
@@ -854,47 +905,44 @@ export default function CollectPage() {
                   title: '状态',
                   dataIndex: 'error',
                   width: 90,
-                  render: (error: string | null) =>
+                  render: (error: string | null, record: SourceDetail) =>
                     error ? (
-                      <Typography.Text type="danger" style={{ fontSize: 12 }} ellipsis={{ tooltip: error }}>
+                      <Typography.Text
+                        style={{ fontSize: 12, color: '#cf1322' }}
+                        ellipsis={{ tooltip: error }}
+                      >
                         失败
                       </Typography.Text>
+                    ) : Number(record.fetched ?? 0) === 0 ? (
+                      <Tag style={TAG_STYLE_WARN}>空抓取</Tag>
                     ) : (
-                      <Tag color="success">正常</Tag>
+                      <Tag style={TAG_STYLE_OK}>正常</Tag>
                     ),
                 },
-              ]}
-            />
-          )}
+                        ]}
+                      />
+                    </Space>
+                  ) : (
+                    <Empty description="该任务没有信源明细(旧任务),重新采集即可看到每个信源的抓取情况" />
+                  ),
+              },
+              {
+                key: 'stages',
+                label: '环节耗时',
+                // 仅 10 行,预渲染让切换即时
+                forceRender: true,
+                children: (
+                  <StageTable
+                    stages={stageInfos}
+                    emptyText="该任务没有阶段数据(旧任务),重新采集即可看到每个环节的耗时"
+                  />
+                ),
+              },
+            ]}
+          />
         </Card>
       )}
 
-      {hasResult && job?.status === 'succeeded' && (
-        <Card
-          title="采集结果(Markdown)"
-          style={{ marginTop: 16 }}
-          extra={
-            <Button
-              icon={<ThunderboltOutlined />}
-              onClick={() => {
-                navigator.clipboard?.writeText(report)
-                message.success('已复制 Markdown')
-              }}
-            >
-              复制 Markdown
-            </Button>
-          }
-        >
-          <div className="digest-markdown collect-report" id="collect-report">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{report}</ReactMarkdown>
-          </div>
-          {ingested.length > 0 && (
-            <Typography.Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0 }}>
-              共 {ingested.length} 条入库明细,完整清单见上方日志或「资讯流」。
-            </Typography.Paragraph>
-          )}
-        </Card>
-      )}
     </div>
   )
 }

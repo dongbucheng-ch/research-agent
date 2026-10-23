@@ -305,6 +305,14 @@ body {
   padding: 2px 0;
 }
 
+/* 首屏告警区:只在有异常时渲染 */
+.collect-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
 /* ── 推送:结果为主行、操作为次行(信使式);只有失败态用高饱和色 ── */
 .push-section {
   padding: 8px 0;
@@ -794,7 +802,7 @@ body {
 .pipeline-node-desc {
   margin-top: 2px;
   font-size: 12px;
-  color: #bfbfbf;
+  color: #6b7280;
 }
 
 .pipeline-cards {
@@ -838,20 +846,26 @@ body {
   font-weight: 600;
   line-height: 1.2;
   color: #1f1f1f;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pipeline-card-state {
-  font-size: 12px;
-  margin-top: 2px;
-  color: #8c8c8c;
+  margin-inline-start: auto;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #6b7280;
 }
 .pipeline-card-state.state-success {
-  color: #52c41a;
+  color: #237804;
 }
 .pipeline-card-state.state-error {
-  color: #ff4d4f;
+  color: #cf1322;
 }
 .pipeline-card-state.state-running {
-  color: #1677ff;
+  color: #0958d9;
 }
 .pipeline-result {
   border: 1px solid #f5f5f5;
@@ -861,43 +875,78 @@ body {
 }
 .pipeline-result-label {
   font-size: 12px;
-  color: #8c8c8c;
+  color: #6b7280;
   margin-bottom: 8px;
 }
 .pipeline-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 8px;
 }
 .pipeline-stat {
   background: #f7f7f9;
   border-radius: 6px;
-  padding: 6px 5px;
+  padding: 6px 8px;
   min-width: 0;
 }
 .pipeline-stat .k {
-  font-size: 11px;
-  color: #8c8c8c;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #6b7280;
 }
 .pipeline-stat .v {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1.3;
   margin-top: 2px;
+  color: #595959;
+}
+/* 决策指标:整行呈现并放大,其余为次级 */
+.pipeline-stat.is-primary {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pipeline-stat.is-primary .v {
+  font-size: 16px;
+  font-weight: 600;
   color: #1f1f1f;
+  margin-top: 0;
 }
 .pipeline-note {
-  display: block;
+  /* 备注随时长数字变长会从 1 行涨到 2 行(实测 19px → 38px),把整行卡片连同下方内容顶下去。
+     固定 2 行高度 + 超出省略:有/无数据时卡片高度恒定。 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-height: 3.143em;
+  overflow: hidden;
   text-align: right;
   font-size: 12px;
-  color: #bfbfbf;
+  color: #6b7280;
 }
 
 .pipeline-card .ant-btn {
   font-weight: 500;
+}
+
+/* 主行动按钮:AntD 默认主色白字仅 4.10:1,加深到 #0958d9(6.16:1) */
+.pipeline-card .ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-disabled),
+.collect-config-modal .ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-disabled) {
+  background: #0958d9;
+  border-color: #0958d9;
+}
+.pipeline-card .ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover,
+.collect-config-modal .ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-disabled):hover {
+  background: #0748b8;
+  border-color: #0748b8;
+}
+.pipeline-card .ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-disabled):active,
+.collect-config-modal .ant-btn.ant-btn-primary:not(:disabled):not(.ant-btn-disabled):active {
+  background: #063a94;
+  border-color: #063a94;
 }
 .pipeline-card .ant-btn:disabled {
   background: #f5f5f5;

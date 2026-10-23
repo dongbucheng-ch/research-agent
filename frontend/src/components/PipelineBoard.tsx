@@ -12,20 +12,29 @@ export type StageState = 'pending' | 'running' | 'success' | 'error'
 export interface PipelineStat {
   label: string
   value: ReactNode
+  /** 决策指标:占满整行并以 16px/600 呈现,其余降为次级 */
+  primary?: boolean
 }
 
 export interface PipelineStage {
   key: string
   title: string
   desc: string
-  /** 主色:图标、按钮、进度线 */
+  /** 阶段识别色:仅用于图标底与进度线,不承载状态语义 */
   color: string
   /** 图标底色 */
   soft: string
   icon: ReactNode
   state: StageState
   stats: PipelineStat[]
-  action: { label: string; onClick: () => void; disabled?: boolean; loading?: boolean }
+  action: {
+    label: string
+    onClick: () => void
+    disabled?: boolean
+    loading?: boolean
+    /** 主行动:同一屏只允许一个,其余为次级按钮 */
+    emphasis?: 'primary' | 'default'
+  }
   note?: string
 }
 
@@ -36,21 +45,12 @@ const STATE_TEXT: Record<StageState, string> = {
   error: '失败',
 }
 
-function StateDot({ state, color }: { state: StageState; color: string }) {
-  if (state === 'success') return <CheckCircleFilled style={{ color }} />
-  if (state === 'error') return <CloseCircleFilled style={{ color: '#ff4d4f' }} />
-  if (state === 'running') return <LoadingOutlined style={{ color: '#1677ff' }} spin />
-  return (
-    <span
-      style={{
-        width: 14,
-        height: 14,
-        borderRadius: '50%',
-        border: '1.5px solid #d9d9d9',
-        display: 'inline-block',
-      }}
-    />
-  )
+/** 状态指示:颜色一律由状态决定(见 .pipeline-dot 样式),阶段色不参与。 */
+function StateDot({ state }: { state: StageState }) {
+  if (state === 'success') return <CheckCircleFilled />
+  if (state === 'error') return <CloseCircleFilled />
+  if (state === 'running') return <LoadingOutlined spin />
+  return <span className="pipeline-dot-empty" />
 }
 
 export default function PipelineBoard({
@@ -94,8 +94,8 @@ export default function PipelineBoard({
         {stages.map((stage, index) => (
           <div className="pipeline-node" key={stage.key}>
             <div className="pipeline-node-head">
-              <span className="pipeline-dot">
-                <StateDot state={stage.state} color={stage.color} />
+              <span className={`pipeline-dot state-${stage.state}`}>
+                <StateDot state={stage.state} />
               </span>
               {index < stages.length - 1 && (
                 <span
@@ -125,18 +125,19 @@ export default function PipelineBoard({
               >
                 {stage.icon}
               </span>
-              <div style={{ minWidth: 0 }}>
-                <div className="pipeline-card-title">{stage.title}</div>
-                <div className={`pipeline-card-state state-${stage.state}`}>
-                  {STATE_TEXT[stage.state]}
-                </div>
-              </div>
+              <div className="pipeline-card-title">{stage.title}</div>
+              <span className={`pipeline-card-state state-${stage.state}`}>
+                {STATE_TEXT[stage.state]}
+              </span>
             </div>
             <div className="pipeline-result">
               <div className="pipeline-result-label">执行结果</div>
               <div className="pipeline-stats">
                 {stage.stats.map((stat) => (
-                  <div className="pipeline-stat" key={stat.label}>
+                  <div
+                    className={stat.primary ? 'pipeline-stat is-primary' : 'pipeline-stat'}
+                    key={stat.label}
+                  >
                     <div className="k">{stat.label}</div>
                     <div className="v">{stat.value}</div>
                   </div>
@@ -145,19 +146,16 @@ export default function PipelineBoard({
             </div>
             <Button
               block
-              type="primary"
+              type={stage.action.emphasis === 'primary' ? 'primary' : 'default'}
               loading={stage.action.loading}
               disabled={stage.action.disabled}
               onClick={stage.action.onClick}
-              style={
-                stage.action.disabled
-                  ? undefined
-                  : { background: stage.color, borderColor: stage.color }
-              }
             >
               {stage.action.label}
             </Button>
-            <Typography.Text className="pipeline-note">{stage.note ?? '\u00a0'}</Typography.Text>
+            <Typography.Text className="pipeline-note" title={stage.note ?? undefined}>
+              {stage.note ?? '\u00a0'}
+            </Typography.Text>
           </div>
         ))}
       </div>
