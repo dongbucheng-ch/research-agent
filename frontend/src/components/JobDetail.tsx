@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 import type { JobRun } from '../api/types'
 import JobLogViewer from './JobLogViewer'
-import StageTable, { readStagesFromJob, StageSummaryText } from './StageTable'
+import StageTable, { liveCounter, readStagesFromJob, StageSummaryText } from './StageTable'
 import { formatTokens } from '../utils'
 
 const PARAM_LABELS: Record<string, string> = {
@@ -149,13 +149,38 @@ export default function JobDetail({ job }: { job: JobRun }) {
       )}
       <StageTable stages={stages} />
       <Descriptions size="small" column={4} bordered>
-        <Descriptions.Item label="抓取">{numberOf(result.fetched)}</Descriptions.Item>
-        <Descriptions.Item label="新入库">{numberOf(result.new_items)}</Descriptions.Item>
-        <Descriptions.Item label="去重">{numberOf(result.duplicates)}</Descriptions.Item>
-        <Descriptions.Item label="过滤">{numberOf(result.filtered)}</Descriptions.Item>
-        <Descriptions.Item label="低于门槛">{numberOf(result.low_score)}</Descriptions.Item>
-        <Descriptions.Item label="失败信源">{numberOf(result.failed_sources)}</Descriptions.Item>
-        <Descriptions.Item label="LLM 错误">{numberOf(result.llm_errors)}</Descriptions.Item>
+        {/* 运行中的任务:数字取自阶段实时计数,任务结束后与顶层 result 一致 */}
+        <Descriptions.Item label="抓取">
+          {liveCounter(job, 'collect', 'fetched', numberOf(result.fetched))}
+        </Descriptions.Item>
+        <Descriptions.Item label="新入库">
+          {liveCounter(job, 'store', 'new_items', numberOf(result.new_items))}
+        </Descriptions.Item>
+        <Descriptions.Item label="去重">
+          {liveCounter(
+            job,
+            'dedup',
+            'duplicates',
+            liveCounter(job, 'normalize', 'duplicates', numberOf(result.duplicates)),
+          )}
+        </Descriptions.Item>
+        <Descriptions.Item label="过滤">
+          {liveCounter(job, 'normalize', 'filtered', numberOf(result.filtered))}
+        </Descriptions.Item>
+        <Descriptions.Item label="低于门槛">
+          {liveCounter(job, 'score', 'low_score', numberOf(result.low_score))}
+        </Descriptions.Item>
+        <Descriptions.Item label="失败信源">
+          {liveCounter(
+            job,
+            'collect',
+            'failed_sources',
+            liveCounter(job, 'collect', 'failed', numberOf(result.failed_sources)),
+          )}
+        </Descriptions.Item>
+        <Descriptions.Item label="LLM 错误">
+          {liveCounter(job, 'enrich', 'llm_errors', numberOf(result.llm_errors))}
+        </Descriptions.Item>
         <Descriptions.Item label="LLM Token">
           {numberOf(usage.total_tokens)
             ? `${formatTokens(usage.total_tokens)}（入 ${formatTokens(usage.prompt_tokens)} / 出 ${formatTokens(usage.completion_tokens)}）`

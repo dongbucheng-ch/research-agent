@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -551,6 +551,62 @@ def _is_hot_channel(spec: CollectionSpec, source: Source) -> bool:
     return bool(route) and route[1] == "trending"
 
 
+async def _collect_sources(
+    sources: list[Source],
+    collect_one: Callable[[Source], Awaitable[tuple[Source, list[RawItem], str | None, float]]],
+    *,
+    tracker: StageTracker,
+    stats: FetchStats,
+    log: LogFn,
+) -> tuple[list[tuple[Source, list[RawItem], str | None, float]], dict[int, dict[str, Any]]]:
+    """并发抓取并按「完成顺序」逐源计数。
+
+    原先用 ``asyncio.gather`` 等所有信源返回后才统一遍历,采集阶段(整轮里最长的一段)
+    全程只能显示 0;改为完成一个就计入一个,慢源不再拖住进度显示。
+    """
+    tracker.start("collect", f"并发抓取 {len(sources)} 个信源")
+    results: list[tuple[Source, list[RawItem], str | None, float]] = []
+    detail_by_source: dict[int, dict[str, Any]] = {}
+    pending = [asyncio.create_task(collect_one(src)) for src in sources]
+    for finished in asyncio.as_completed(pending):
+        src, items, error, seconds = await finished
+        results.append((src, items, error, seconds))
+        route = route_of(src)
+        row: dict[str, Any] = {
+            "source_id": src.id,
+            "name": src.name,
+            "engine": engine_of(src),
+            "preset": route[1] if route else "",
+            "kind": src.collector_kind,
+            "seconds": round(seconds, 2),
+            "fetched": len(items),
+            "filtered": 0,
+            "duplicates": 0,
+            "low_score": 0,
+            "ingested": 0,
+            "error": error,
+        }
+        detail_by_source[src.id] = tracker.add_source(row)
+        if error is not None:
+            _record_source_result(src, ok=False, error=error)
+            stats.failed_sources += 1
+            log(f"[采集] {src.name} 抓取失败: {truncate(error, 160)}")
+        else:
+            _record_source_result(src, ok=True)
+            stats.fetched += len(items)
+            log(f"[采集] {src.name}·{object_type_of(src)} 抓取 {len(items)} 条 ({seconds:.2f}s)")
+        # 每处理完一个信源就推一次阶段计数(StageTracker 内部按 1s 节流,不会放大写库频率)。
+        tracker.update(fetched=stats.fetched, failed_sources=stats.failed_sources)
+    tracker.set_counters(fetched=stats.fetched, failed_sources=stats.failed_sources)
+    tracker.finish(
+        "collect",
+        f"抓取 {stats.fetched} 条 · 失败 {stats.failed_sources} 个信源",
+        fetched=stats.fetched,
+        failed=stats.failed_sources,
+    )
+    return results, detail_by_source
+
+
 async def _process_spec(
     session: AsyncSession,
     spec: CollectionSpec,
@@ -616,42 +672,10 @@ async def _process_spec(
         except Exception as exc:  # noqa: BLE001 - record and continue
             return src, [], describe_error(exc), time.monotonic() - started
 
-    tracker.start("collect", f"并发抓取 {len(sources)} 个信源")
-    results = await asyncio.gather(*[collect_one(src) for src in sources])
-    detail_by_source: dict[int, dict[str, Any]] = {}
-    for src, items, error, seconds in results:
-        route = route_of(src)
-        row: dict[str, Any] = {
-            "source_id": src.id,
-            "name": src.name,
-            "engine": engine_of(src),
-            "preset": route[1] if route else "",
-            "kind": src.collector_kind,
-            "seconds": round(seconds, 2),
-            "fetched": len(items),
-            "filtered": 0,
-            "duplicates": 0,
-            "low_score": 0,
-            "ingested": 0,
-            "error": error,
-        }
-        detail_by_source[src.id] = tracker.add_source(row)
-        if error is not None:
-            _record_source_result(src, ok=False, error=error)
-            stats.failed_sources += 1
-            log(f"[采集] {src.name} 抓取失败: {truncate(error, 160)}")
-        else:
-            _record_source_result(src, ok=True)
-            stats.fetched += len(items)
-            log(f"[采集] {src.name}·{object_type_of(src)} 抓取 {len(items)} 条 ({seconds:.2f}s)")
-    await session.commit()
-    tracker.set_counters(fetched=stats.fetched, failed_sources=stats.failed_sources)
-    tracker.finish(
-        "collect",
-        f"抓取 {stats.fetched} 条 · 失败 {stats.failed_sources} 个信源",
-        fetched=stats.fetched,
-        failed=stats.failed_sources,
+    results, detail_by_source = await _collect_sources(
+        sources, collect_one, tracker=tracker, stats=stats, log=log
     )
+    await session.commit()
 
     # Normalize + cheap filters (exclude words and include-word hits).
     tracker.start("normalize", "URL 规范化 / 排除词 / 关键词粗筛")

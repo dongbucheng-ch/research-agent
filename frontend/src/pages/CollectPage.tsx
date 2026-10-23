@@ -34,7 +34,7 @@ import type { JobRun, Source } from '../api/types'
 import JobLogViewer from '../components/JobLogViewer'
 import PipelineBoard from '../components/PipelineBoard'
 import type { PipelineStage, StageState } from '../components/PipelineBoard'
-import StageTable, { readStagesFromJob } from '../components/StageTable'
+import StageTable, { liveCounter, readStagesFromJob } from '../components/StageTable'
 import type { StageInfo } from '../components/StageTable'
 import { formatTokens } from '../utils'
 
@@ -357,13 +357,25 @@ export default function CollectPage() {
   const hasResult = !!job && (job.status === 'succeeded' || job.status === 'failed')
   const result = (job?.result ?? {}) as Record<string, unknown>
   const numberOf = (value: unknown) => (typeof value === 'number' ? value : Number(value ?? 0) || 0)
-  const fetched = numberOf(result.fetched)
-  const duplicates = numberOf(result.duplicates)
-  const filtered = numberOf(result.filtered)
-  const newItems = numberOf(result.new_items)
-  const failedSources = numberOf(result.failed_sources)
-  const llmErrors = numberOf(result.llm_errors)
-  const lowScore = numberOf(result.low_score)
+  // 运行中的数字来自 progress.stages[].counters(每秒落库),任务结束后与顶层 result 一致
+  const fetched = liveCounter(job, 'collect', 'fetched', numberOf(result.fetched))
+  const failedSources = liveCounter(
+    job,
+    'collect',
+    'failed_sources',
+    liveCounter(job, 'collect', 'failed', numberOf(result.failed_sources)),
+  )
+  const sourceCount = liveCounter(job, 'sources', 'count', numberOf(result.sources))
+  const duplicates = liveCounter(
+    job,
+    'dedup',
+    'duplicates',
+    liveCounter(job, 'normalize', 'duplicates', numberOf(result.duplicates)),
+  )
+  const filtered = liveCounter(job, 'normalize', 'filtered', numberOf(result.filtered))
+  const newItems = liveCounter(job, 'store', 'new_items', numberOf(result.new_items))
+  const llmErrors = liveCounter(job, 'enrich', 'llm_errors', numberOf(result.llm_errors))
+  const lowScore = liveCounter(job, 'score', 'low_score', numberOf(result.low_score))
   const avgScore = ingested.length
     ? (ingested.reduce((acc, row) => acc + Number(row.total || 0), 0) / ingested.length).toFixed(1)
     : '—'
@@ -490,7 +502,7 @@ export default function CollectPage() {
       state: states[1],
       stats: [
         { label: '抓取', value: fetched, primary: true },
-        { label: '信源', value: numberOf(result.sources) },
+        { label: '信源', value: sourceCount },
         { label: '失败源', value: failedSources },
       ],
       action: {

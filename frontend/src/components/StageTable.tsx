@@ -32,6 +32,29 @@ export function readStagesFromJob(job?: JobRun | null): StageInfo[] {
   )
 }
 
+/** 实时计数:优先取 ``progress.stages[].counters``(运行中每秒刷新),
+ *  回退到任务结束才写入的顶层 ``result.*`` 字段(旧任务)。 */
+export function stageCounter(
+  job: JobRun | null | undefined,
+  stageKey: string,
+  field: string,
+): number | null {
+  const stage = readStagesFromJob(job).find((row) => row.key === stageKey)
+  const raw = (stage?.counters ?? {})[field]
+  const value = typeof raw === 'number' ? raw : Number(raw)
+  return Number.isFinite(value) ? value : null
+}
+
+/** ``stageCounter`` 的兜底版本:实时值缺失时用 ``fallback``。 */
+export function liveCounter(
+  job: JobRun | null | undefined,
+  stageKey: string,
+  field: string,
+  fallback: number,
+): number {
+  return stageCounter(job, stageKey, field) ?? fallback
+}
+
 export default function StageTable({
   stages,
   emptyText = '该任务没有阶段数据(旧任务),重新执行即可看到每个环节的耗时',
