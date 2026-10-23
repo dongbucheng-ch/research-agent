@@ -50,6 +50,7 @@ async def _llm_out(session: AsyncSession) -> LLMSettingsOut:
         timeout_seconds=int(config.get("timeout_seconds") or 180),
         max_concurrency=int(config.get("max_concurrency") or 3),
         translate_enabled=bool(config.get("translate_enabled", True)),
+        disable_thinking=bool(config.get("disable_thinking", True)),
     )
 
 
@@ -72,6 +73,7 @@ async def update_llm_settings(
             "timeout_seconds": payload.timeout_seconds,
             "max_concurrency": payload.max_concurrency,
             "translate_enabled": payload.translate_enabled,
+            "disable_thinking": payload.disable_thinking,
         }
     )
     if payload.api_key and payload.api_key.strip():
@@ -92,7 +94,13 @@ async def test_llm_settings(
     api_key = (payload.api_key or str(config.get("api_key") or "")).strip()
     if not (base_url and model and api_key):
         return LLMTestOut(ok=False, message="base_url / model / api_key 不完整")
-    client = LLMClient(base_url=base_url, api_key=api_key, model=model, timeout=60)
+    client = LLMClient(
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+        timeout=60,
+        disable_thinking=bool(config.get("disable_thinking", True)),
+    )
     try:
         reply, latency = await client.test()
     except LLMError as exc:

@@ -135,6 +135,8 @@ class LLMSettingsIn(BaseModel):
     timeout_seconds: int = Field(default=180, ge=10, le=600)
     max_concurrency: int = Field(default=3, ge=1, le=16)
     translate_enabled: bool = True
+    # 关掉推理模型的深度思考(DeepSeek 系 thinking 参数);见 llm.py 注释。
+    disable_thinking: bool = True
 
 
 class LLMSettingsOut(BaseModel):
@@ -146,6 +148,7 @@ class LLMSettingsOut(BaseModel):
     timeout_seconds: int
     max_concurrency: int
     translate_enabled: bool
+    disable_thinking: bool
 
 
 class LLMTestIn(BaseModel):

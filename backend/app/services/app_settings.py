@@ -27,6 +27,9 @@ DEFAULT_LLM: dict[str, Any] = {
     "timeout_seconds": 180,
     "max_concurrency": 3,
     "translate_enabled": True,
+    # 推理模型默认关掉深度思考:开启时 token 会全烧在 reasoning 上(实测 6000 上限全被
+    # reasoning 吃掉、content 为空),请求只能等到超时,日报/富化整轮降级。
+    "disable_thinking": True,
 }
 
 

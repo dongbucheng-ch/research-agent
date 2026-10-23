@@ -182,6 +182,8 @@ export interface LLMSettings {
   timeout_seconds: number
   max_concurrency: number
   translate_enabled: boolean
+  /** 关闭推理模型的深度思考(推荐):避免 token 全花在思考上导致超时与空响应 */
+  disable_thinking: boolean
 }
 
 export interface PushChannel {

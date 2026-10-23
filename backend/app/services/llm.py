@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -52,6 +55,12 @@ class LLMError(RuntimeError):
 
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
+
+# 网关不认识 `thinking` 时的典型报错(OpenAI 官方会直接 400 说参数不认识)。
+_THINKING_REJECT_RE = re.compile(
+    r"thinking|unrecogni[sz]ed|unknown (?:argument|parameter|field|key)|unsupported",
+    re.IGNORECASE,
+)
 
 
 def parse_json_content(text: str) -> Any:
@@ -104,11 +113,17 @@ class LLMClient:
         api_key: str,
         model: str,
         timeout: float = 180.0,
+        disable_thinking: bool = True,
     ) -> None:
         self.base_url = normalize_base_url(base_url)
         self.api_key = api_key
         self.model = model
         self.timeout = timeout
+        # 推理模型(DeepSeek 系等)默认会把 token 全烧在思维链上:实测 6000 max_tokens
+        # 全部计入 reasoning_tokens、content 为空,最终请求超时、整轮生成降级;
+        # 关掉后同一 prompt 从 47.6s 降到 18.8s 且能拿到完整 JSON。
+        self.disable_thinking = disable_thinking
+        self._thinking_rejected = False
         self.usage = LLMUsage()
 
     @classmethod
@@ -125,6 +140,7 @@ class LLMClient:
             api_key=api_key,
             model=model,
             timeout=float(config.get("timeout_seconds") or 180),
+            disable_thinking=bool(config.get("disable_thinking", True)),
         )
 
     async def chat(
@@ -134,7 +150,6 @@ class LLMClient:
         temperature: float = 0.3,
         max_tokens: int | None = None,
     ) -> str:
-        url = f"{self.base_url}/chat/completions"
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
@@ -142,15 +157,18 @@ class LLMClient:
         }
         if max_tokens:
             payload["max_tokens"] = max_tokens
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(url, json=payload, headers=headers)
-        except httpx.HTTPError as exc:
-            raise LLMError(f"LLM request failed: {exc}") from exc
+        wants_thinking_off = self.disable_thinking and not self._thinking_rejected
+        if wants_thinking_off:
+            payload["thinking"] = {"type": "disabled"}
+        resp = await self._post(payload)
+        if wants_thinking_off and self._rejects_thinking(resp):
+            logger.warning(
+                "LLM 网关不接受 thinking 参数(HTTP %s),去掉后重试并记住该能力",
+                resp.status_code,
+            )
+            self._thinking_rejected = True
+            payload.pop("thinking", None)
+            resp = await self._post(payload)
         if resp.status_code != 200:
             raise LLMError(f"LLM HTTP {resp.status_code}: {resp.text[:300]}")
         try:
@@ -167,6 +185,26 @@ class LLMClient:
             return str(data["choices"][0]["message"]["content"])
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"unexpected LLM response shape: {str(data)[:300]}") from exc
+
+    async def _post(self, payload: dict[str, Any]) -> httpx.Response:
+        url = f"{self.base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                return await client.post(url, json=payload, headers=headers)
+        except httpx.HTTPError as exc:
+            # 超时类异常的 str() 常为空,补上类型与超时值,否则日志只剩「LLM request failed: 」。
+            detail = str(exc).strip() or type(exc).__name__
+            raise LLMError(f"LLM 请求失败({detail}; timeout={self.timeout:g}s)") from exc
+
+    @staticmethod
+    def _rejects_thinking(resp: httpx.Response) -> bool:
+        if resp.status_code not in (400, 404, 422):
+            return False
+        return bool(_THINKING_REJECT_RE.search(resp.text or ""))
 
     async def chat_text(
         self,
