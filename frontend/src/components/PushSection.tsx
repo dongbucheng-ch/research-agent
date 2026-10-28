@@ -40,15 +40,6 @@ export default function PushSection({ targetKind, targetId, vertical = false }: 
   })
   const enabledChannels = (channels ?? []).filter((channel) => channel.enabled)
 
-  const { data: target } = useQuery({
-    queryKey: ['push-target', targetKind, targetId],
-    queryFn: () =>
-      api.get<{ title: string }>(
-        targetKind === 'digest' ? `/digests/${targetId}` : `/articles/${targetId}`,
-      ),
-    enabled: targetId !== null,
-  })
-
   useEffect(() => {
     if (channelId === undefined && enabledChannels.length > 0) setChannelId(enabledChannels[0].id)
   }, [channelId, enabledChannels])
@@ -88,13 +79,6 @@ export default function PushSection({ targetKind, targetId, vertical = false }: 
   })
 
   const retry = (log: PushLog) => pushMutation.mutate({ channelId: log.channel_id })
-
-  const selectedChannel = (channels ?? []).find((channel) => channel.id === channelId)
-  const channelConfig = (selectedChannel?.config ?? {}) as Record<string, unknown>
-  const configText = (key: string) => {
-    const value = channelConfig[key]
-    return typeof value === 'string' && value.trim() ? value : undefined
-  }
 
   const openSettings = () => {
     settingsForm.resetFields()
@@ -272,22 +256,13 @@ export default function PushSection({ targetKind, targetId, vertical = false }: 
       >
         <Form form={settingsForm} layout="vertical">
           <Form.Item name="title" label="标题" tooltip="留空则使用产出物原标题">
-            <Input
-              maxLength={255}
-              placeholder={target?.title ? `默认:${target.title}` : '留空则使用原标题'}
-            />
+            <Input maxLength={255} placeholder="留空则使用原标题" />
           </Form.Item>
           <Form.Item name="source" label="来源" tooltip="留空则使用渠道配置里的默认来源">
-            <Input
-              maxLength={128}
-              placeholder={configText('source') ? `默认:${configText('source')}` : '留空则用渠道默认'}
-            />
+            <Input maxLength={128} placeholder="留空则使用渠道默认来源" />
           </Form.Item>
           <Form.Item name="author" label="作者" tooltip="留空则使用渠道配置里的默认作者">
-            <Input
-              maxLength={128}
-              placeholder={configText('author') ? `默认:${configText('author')}` : '留空则用渠道默认'}
-            />
+            <Input maxLength={128} placeholder="留空则使用渠道默认作者" />
           </Form.Item>
           <Form.Item
             name="tags"

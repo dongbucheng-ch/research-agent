@@ -909,7 +909,7 @@ export default function SettingsPage() {
             label="默认来源 source"
             extra="推送模板里的 $source 取这里;留空则用产出物默认"
           >
-            <Input placeholder="例如 sribd_forum_ai" />
+            <Input placeholder="例如:研讯平台" />
           </Form.Item>
           <Form.Item
             name="author"
