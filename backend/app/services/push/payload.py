@@ -41,6 +41,33 @@ def rank_tags(tag_lists: Iterable[Iterable[Any]], *, limit: int = MATERIAL_TAG_L
     return ranked[:limit]
 
 
+def strip_leading_title(content_md: str | None, title: str | None) -> str:
+    """去掉正文首行的 H1 标题。
+
+    推送侧已有独立的 title 字段(渠道配置或推送时手填),正文再带一遍标题会在接收端重复显示。
+    只删「文档自己的标题」:首行是 `# …` 且与 title 一致时才删——生成侧固定写 `# {title}`,
+    首行对不上就原样保留,不猜、不动正文其它内容。
+    """
+    text = content_md or ""
+    expected = (title or "").strip()
+    if not text or not expected:
+        return text
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not stripped.startswith("# "):
+            break
+        if stripped[2:].strip() != expected:
+            break
+        rest = lines[index + 1 :]
+        if rest and not rest[0].strip():
+            rest = rest[1:]
+        return "".join(rest).lstrip("\n")
+    return text
+
+
 def compose_payload(
     *,
     target_id: int,

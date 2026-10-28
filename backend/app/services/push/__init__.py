@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Article, Digest, DigestItem, Item, PushChannel, PushLog
 from app.services.push.base import PushError, PushProvider, PushResult
 from app.services.push.export import ExportPushProvider
-from app.services.push.payload import compose_payload, normalize_tags, rank_tags
+from app.services.push.payload import (
+    compose_payload,
+    normalize_tags,
+    rank_tags,
+    strip_leading_title,
+)
 from app.services.push.webhook import WebhookPushProvider
 
 _PROVIDERS: dict[str, PushProvider] = {
@@ -44,18 +49,21 @@ async def _material_tags(session: AsyncSession, target_kind: str, target: Any) -
 
 
 def _target_fields(target_kind: str, target: Any) -> dict[str, Any]:
-    """产出物自身的推送字段;文章的 lead 取 topic、标签素材取 keywords。"""
+    """产出物自身的推送字段;文章的 lead 取 topic、标签素材取 keywords。
+
+    正文首行的 H1 标题与推送的 title 字段重复,这里统一去掉(接收端只显示一次标题)。
+    """
     if target_kind == "digest":
         return {
             "title": target.title,
             "lead": target.lead,
-            "content_md": target.content_md,
+            "content_md": strip_leading_title(target.content_md, target.title),
             "highlights": list(target.highlights or []),
         }
     return {
         "title": target.title,
         "lead": target.topic,
-        "content_md": target.content_md,
+        "content_md": strip_leading_title(target.content_md, target.title),
         "highlights": list(target.keywords or []),
     }
 
