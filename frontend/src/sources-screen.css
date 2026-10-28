@@ -1,0 +1,218 @@
+/* Hallmark · checked: 2026-10-28 · genre: modern-minimal (inferred) · shape: app screen · scope: 信源池(/sources)
+ * compat: AntD 5 + .sources-page 的 --src-* 局部令牌与系统字体;不引第二套主题,不改调色板、圆角、投影与外壳
+ * fixed: 表格铺满可用宽度(最小宽 1200→900)且操作列常驻、信源列钉左;展开行事实分格(去中点串)、
+ *        键盘焦点环换成 2px --src-accent、搜索框描边深到 3:1、警示橙加深到 4.5:1、
+ *        连续失败为 0 时不再报红、空态说清「为什么空」、分页条下沿留 12px、窄屏收起次要列 + 搜索整行 + 工具条折行 + 整页滚动
+ * waived 56: th 的 sticky 参照物是 .ant-table-content 自身的滚动容器,与面包屑不在同一层,不会互相遮挡
+ * waived 73: 被表格滚动容器裁掉的行内文字仍参与 elementFromPoint 检测,分页因此被判成「盖住文字」
+ * waived 40: 分页选择器的内层 search input 没有边框,可见边界由 .ant-select-selector 承担(已深到 3:1 以上)
+ * waived 39b: 搜索框内层 input 的 22px 是 AntD 的文本行高;命中区是外层 32px 的 .ant-input-affix-wrapper
+ * waived 72: 表格内容高于卡片正是内部滚动的结果,不是文字贴边
+ * owner 40: 「新建信源」白字压在 AntD 主色 #1677ff 上只有 4.10:1,要消得改全站 colorPrimary(需产品点头)
+ * finish-review: subagent · 5 findings · 5 resolved(手机下行级动作进展开行、入库/候选计数跨两格、异常行在名字下补状态、
+ *                信源列给定宽度后 1920 不再吞掉富余、平均均分→平均分)
+ * built: the project · redesign: polish · v2.0.0 */
+
+/* 这一层只做「结构增量」:规则全部限定在 .sources-page 内,外壳、素材池、产出物页不受影响。 */
+
+/* ── 工具条:左筛选右动作,窄屏整行折 ────────────────────────────
+   Space 默认不换行:375 宽时「信源发现 / 推荐信源库 / 新建信源」会撑出卡片,
+   连带整页出现横向滚动。这里允许换行并把最小宽度放开,让按钮按行内的可用宽度排。 */
+.sources-page .src-toolbar-row {
+  min-width: 0;
+}
+.sources-page .src-toolbar-row > .ant-space {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.sources-page .src-toolbar-row > .ant-space .ant-space-item {
+  min-width: 0;
+}
+.sources-page .src-search.ant-input-search {
+  width: 260px;
+  max-width: 100%;
+}
+
+/* ── 分页条:与行内容之间拉一条细线,末行被裁时不至于黏在一起 ───── */
+.sources-page .src-table .ant-table-pagination.ant-pagination {
+  /* 上下都要留白:margin 0 会让分页条贴死卡片下沿(45px 高只剩 1px 余量) */
+  margin: 0 16px 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--src-border);
+}
+
+/* ── 统计条:数字等宽,警示色只在真的有事时出现 ───────────────── */
+.sources-page .src-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+.sources-page .src-stat b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 键盘焦点:与素材池同一枚 2px 实心环 ───────────────────────
+   AntD 自带的 #91caff 描边在白卡上只有 1.7:1,键盘走到分段控件或按钮时看不出焦点。 */
+.sources-page .ant-btn:focus-visible,
+.sources-page .ant-input:focus-visible,
+.sources-page .ant-input-affix-wrapper:focus-within,
+.sources-page .ant-select:focus-within,
+.sources-page .ant-segmented:focus-within,
+.sources-page .ant-segmented-item-focused,
+.sources-page .ant-pagination-item:focus-visible,
+.sources-page .ant-pagination-prev .ant-pagination-item-link:focus-visible,
+.sources-page .ant-pagination-next .ant-pagination-item-link:focus-visible {
+  outline: 2px solid var(--src-accent);
+  outline-offset: 1px;
+}
+
+/* ── 字段边界:白底上 1px #d9d9d9 只有 1.41:1,够不到非文本 3:1 ──
+   搜索框与分页的选择器没有填充色,不加深就认不出「这里可以输入」。 */
+.sources-page .ant-input-affix-wrapper,
+.sources-page .ant-select:not(.ant-select-customize-input) .ant-select-selector,
+.sources-page .ant-input {
+  border-color: var(--src-text-3);
+}
+
+/* ── 表格:铺满可用宽度,两端常驻 ───────────────────────────────
+   scroll.x 从 1200 降到 900 后,表格宽度 = max(900, 容器宽):1440 下正好铺满,
+   176 宽的操作列不再被裁到卡片外;更窄时在表格内部横向滚动,信源列钉左、操作列钉右。
+   固定列在滚动时会各自盖住相邻内容,这里让它们的底色与卡片一致,避免透出灰底。 */
+.sources-page .src-table .ant-table-cell-fix-left,
+.sources-page .src-table .ant-table-cell-fix-right {
+  background: var(--src-surface);
+}
+.sources-page .src-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-left,
+.sources-page .src-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-right {
+  background: var(--src-surface-hover);
+}
+
+/* ── 展开行:URL / 错误 / 事实分格 ─────────────────────────────
+   窄屏收起的「渠道 / 状态 / 产出 / 时间」在这里补全,一行一件事实,
+   不再用中点串成一句(中点串既难扫,也没有对齐的列)。 */
+.sources-page .src-expand-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 4px 16px;
+}
+.sources-page .src-expand-facts > span {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+.sources-page .src-expand-facts b {
+  font-weight: 600;
+  color: var(--src-text-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 按下反馈:1px 位移,不靠阴影或变色制造「浮起」 ───────────── */
+.sources-page .ant-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* ── 窄屏的行内状态:状态列让位后,徽标落到名字下面 ───────────── */
+.sources-page .src-name-health {
+  display: none;
+  margin-top: 2px;
+}
+@media (max-width: 575px) {
+  .sources-page .src-name-health {
+    display: inline-flex;
+  }
+}
+
+/* ── 展开行的行级动作:桌面由 hover 组承担,窄屏在这里显形 ─────── */
+.sources-page .src-expand-actions {
+  display: none;
+}
+
+/* ── 空态:一句话说清「为什么空、怎么让它不空」 ─────────────── */
+.sources-page .src-empty {
+  padding: 40px 0;
+}
+.sources-page .src-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--src-text-1);
+}
+.sources-page .src-empty-hint {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--src-text-3);
+}
+
+/* ── 窄屏(≤767):收起次要列,整页滚动 ─────────────────────────
+   手机上把 144 行的运维表摊开,只会得到一列被切碎的文字:
+   渠道 / Tier / 产出 / 最近成功在 768 以下让位(展开行可看),
+   表格改为占满宽度,行内只留「信源 · 状态 · 操作」。 */
+@media (max-width: 767px) {
+  .sources-page {
+    height: auto;
+  }
+  .sources-page .src-table .ant-table-content {
+    overflow: visible !important;
+  }
+  .sources-page .src-table table {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  /* 工具条:搜索整行,分段筛选整行可横滑,计数排成两列(六条一行在手机上要占四行) */
+  .sources-page .src-toolbar-row > .ant-space:first-child {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .sources-page .src-toolbar-row > .ant-space:first-child .ant-space-item:first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .sources-page .src-search.ant-input-search {
+    width: auto;
+  }
+  .sources-page .src-toolbar-row .ant-segmented {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .sources-page .src-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+  }
+  /* 分两列后,最长的「入库 / 候选」横跨两格;其余整句不折断 */
+  .sources-page .src-stat.is-wide {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+  /* 三段筛选在 375 宽差几十像素:字号与内边距各收一点,整行放下 */
+  .sources-page .src-toolbar-row .ant-segmented {
+    font-size: 13px;
+  }
+  .sources-page .src-toolbar-row .ant-segmented .ant-segmented-item-label {
+    padding-inline: 4px;
+  }
+  /* 操作列只留常驻的「查看素材」:触屏没有 hover,三个隐藏按钮不该占 104px */
+  .sources-page .src-actions-more {
+    display: none;
+  }
+  /* 名字列回到弹性:手机上的表格等于容器宽,固定 232 会让它顶出卡片 */
+  .sources-page .src-table colgroup col:nth-child(2) {
+    width: auto !important;
+  }
+  .sources-page .src-table colgroup col:last-child {
+    width: 56px !important;
+  }
+  .sources-page .src-table thead th:last-child {
+    padding-inline: 8px;
+  }
+  .sources-page .src-expand {
+    padding-left: 0;
+  }
+  .sources-page .src-expand-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+}

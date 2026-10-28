@@ -10,6 +10,8 @@ import './styles.css'
 import './output-screens.css'
 // 素材池的增量样式:同样排在 styles.css 之后
 import './material-screen.css'
+// 信源池的增量样式:同样排在 styles.css 之后
+import './sources-screen.css'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },

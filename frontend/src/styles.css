@@ -20,6 +20,9 @@ html {
   /* 刷新后数据到达会凭空长出滚动条:槽位常驻,页面宽度不随内容变化重排 */
   overflow-y: scroll;
   scrollbar-gutter: stable;
+  /* 宽度只由布局决定:任何一处算宽都在这里被裁掉,而不是让整页左右晃
+     (clip 不建滚动容器,sticky 表头与侧栏不受影响) */
+  overflow-x: clip;
 }
 
 /* AntD 的 Table 在根节点上设了 scrollbar-color(可继承,值 rgba(0,0,0,.25)/rgba(5,5,5,.06));
@@ -102,6 +105,7 @@ body {
     -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
     "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   background: #f5f6f8;
+  overflow-x: clip;
 }
 
 .app-sider {
@@ -117,6 +121,13 @@ body {
 .app-sider .ant-menu {
   border-inline-end: 0;
   padding-block: 8px;
+}
+
+/* 键盘焦点:侧栏菜单本体可聚焦,AntD 默认浅蓝环在白底上只有 1.74:1 */
+.app-sider .ant-menu:focus-visible,
+.app-sider .ant-menu-item:focus-visible {
+  outline: 2px solid #1677ff;
+  outline-offset: -2px;
 }
 
 .app-brand {
@@ -143,7 +154,7 @@ body {
   margin-inline-start: auto;
   font-size: 11px;
   font-weight: 400;
-  color: #8c8c8c;
+  color: #6b7280;
 }
 
 .app-sider.ant-layout-sider-collapsed .app-brand {
@@ -291,7 +302,8 @@ body {
   font-size: 13px;
 }
 .app-crumb-bar .ant-breadcrumb-link {
-  color: #8c8c8c;
+  /* 白底上 #8c8c8c 只有 3.36:1:压深一档,层级仍靠末级 #26292e 拉出来 */
+  color: #6b7280;
 }
 .app-crumb-bar li:last-child .ant-breadcrumb-link {
   color: #26292e;
@@ -2075,7 +2087,11 @@ body {
   --src-text-3: #5b6472;
   --src-accent: #1677ff;
   --src-danger: #f5222d;
-  --src-warn: #d46b08;
+  /* 表格卡与常驻列的底色:固定列要盖住横滚时从下方穿过的内容,必须是不透明的一层 */
+  --src-surface: #ffffff;
+  --src-surface-hover: #fafcff;
+  /* 警示橙:#d46b08 在白底上只有 3.56:1,深一档到 4.5:1 以上 */
+  --src-warn: #b45309;
 }
 
 .sources-page {

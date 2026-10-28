@@ -105,6 +105,11 @@ function hostOf(url: string): string {
   }
 }
 
+function healthText(row: SourceRow): string {
+  const meta = HEALTH_META[row.health]
+  return row.health === 'failed' ? `${meta.label} ${row.source.consecutive_failures}` : meta.label
+}
+
 function intervalLabel(minutes: number): string {
   if (minutes >= 1440) return `每 ${Math.round(minutes / 1440)} 天`
   if (minutes >= 60) return `每 ${Math.round(minutes / 60)} 小时`
@@ -378,6 +383,11 @@ export default function SourcesPage() {
     {
       title: '信源',
       key: 'name',
+      /* 给定宽度:不写宽度时它是唯一的弹性列,1920 下会把 ~830px 富余全吸进来,
+         名字与排序图标被拉成两截;给了宽度,富余按各列宽度比例均摊 */
+      width: 232,
+      /* 横向滚动时钉在左侧:表里唯一「说出这行是谁」的列 */
+      fixed: 'left',
       sorter: (a, b) => a.source.name.localeCompare(b.source.name),
       render: (_, row) => (
         <div className="src-name">
@@ -385,13 +395,21 @@ export default function SourcesPage() {
           <div className="src-name-meta">
             {hostOf(row.source.url)} · {intervalLabel(row.source.fetch_interval_minutes)}
           </div>
+          {/* 状态列在 576 以下让位:异常行的徽标落到名字下;正常行不加第三行,免得 50 行都变高 */}
+          {row.health !== 'ok' ? (
+            <span className={`src-badge src-name-health is-${row.health}`}>
+              <i />
+              {healthText(row)}
+            </span>
+          ) : null}
         </div>
       ),
     },
     {
       title: '渠道',
       key: 'channel',
-      width: 160,
+      width: 132,
+      responsive: ['md'],
       render: (_, row) => (
         <div className="src-channel">
           <span className="src-chip">{CHANNEL_LABEL[row.source.channel] ?? row.source.channel}</span>
@@ -405,21 +423,19 @@ export default function SourcesPage() {
     {
       title: 'Tier',
       key: 'tier',
-      /* 84 = 文字 26 + 排序图标 20 + 左右内边距 32;fixed 布局下不会像 auto 那样自动撑开 */
-      width: 84,
+      /* 72 = 文字 26 + 排序图标 20 + 左右内边距 26;fixed 布局下不会像 auto 那样自动撑开 */
+      width: 72,
+      responsive: ['md'],
       sorter: (a, b) => a.source.tier.localeCompare(b.source.tier),
       render: (_, row) => <span className={`src-tier is-${row.source.tier.toLowerCase()}`}>{row.source.tier}</span>,
     },
     {
       title: '状态',
       key: 'health',
-      width: 160,
+      width: 124,
+      responsive: ['sm'],
       render: (_, row) => {
-        const meta = HEALTH_META[row.health]
-        const text =
-          row.health === 'failed'
-            ? `${meta.label} ${row.source.consecutive_failures}`
-            : meta.label
+        const text = healthText(row)
         const badge = (
           <span className={`src-badge is-${row.health}`}>
             <i />
@@ -438,11 +454,13 @@ export default function SourcesPage() {
     {
       title: '近 30 天产出',
       key: 'stat',
-      width: 236,
+      width: 190,
+      responsive: ['lg'],
       sorter: (a, b) => (a.stat?.ingested ?? -1) - (b.stat?.ingested ?? -1),
       render: (_, row) => {
         const stat = row.stat
-        if (!stat) return <span className="src-muted">近 30 天无采集</span>
+        /* 列名已经说明口径,这里只留「有没有」,不再重复整句话 */
+        if (!stat) return <span className="src-muted">无采集记录</span>
         const ratio = stat.candidates > 0 ? Math.min(1, stat.ingested / stat.candidates) : 0
         return (
           <div className="src-health">
@@ -473,7 +491,8 @@ export default function SourcesPage() {
     {
       title: '最近成功',
       key: 'last_success_at',
-      width: 112,
+      width: 104,
+      responsive: ['lg'],
       sorter: (a, b) => (a.source.last_success_at ?? '').localeCompare(b.source.last_success_at ?? ''),
       render: (_, row) => {
         const days = row.source.last_success_at
@@ -491,8 +510,10 @@ export default function SourcesPage() {
     {
       title: '操作',
       key: 'actions',
-      width: 176,
+      width: 116,
       align: 'right',
+      /* 横向滚动时钉在右侧:无论窗口多窄,行级动作都在视野内 */
+      fixed: 'right',
       render: (_, row) => (
         <div className="src-actions">
           <Tooltip title={row.stat ? `查看素材(近 30 天入库 ${row.stat.ingested} 条)` : '查看该信源的素材'}>
@@ -553,8 +574,8 @@ export default function SourcesPage() {
           <Space size={8} wrap>
             <Input.Search
               allowClear
+              className="src-search"
               placeholder="搜索名称 / URL / 渠道"
-              style={{ width: 260 }}
               value={sourceSearch}
               onChange={(event) => {
                 setSourceSearch(event.target.value)
@@ -570,7 +591,7 @@ export default function SourcesPage() {
               options={filterOptions}
             />
           </Space>
-          <Space size={8}>
+          <Space size={8} wrap>
             <Button
               onClick={() => {
                 setDiscoverOpen(true)
@@ -590,7 +611,7 @@ export default function SourcesPage() {
           <span className="src-stat">
             共 <b>{summary.total}</b> 个信源
           </span>
-          <span className="src-stat is-alert">
+          <span className={summary.failed > 0 ? 'src-stat is-alert' : 'src-stat'}>
             连续失败 <b>{summary.failed}</b>
           </span>
           {summary.stale > 0 ? (
@@ -598,15 +619,15 @@ export default function SourcesPage() {
               长时间无成功 <b>{summary.stale}</b>
             </span>
           ) : null}
-          <span className="src-stat is-warn">
+          <span className={summary.idle > 0 ? 'src-stat is-warn' : 'src-stat'}>
             近 30 天无产出 <b>{summary.idle}</b>
           </span>
-          <span className="src-stat">
+          <span className="src-stat is-wide">
             30 天入库 <b>{summary.ingested}</b>
             <span className="src-muted"> / 候选 {summary.candidates}</span>
           </span>
           <span className="src-stat">
-            平均均分 <b>{summary.avg}</b>
+            平均分 <b>{summary.avg}</b>
           </span>
           <span className="src-stat">
             最近采集 <b>{formatRelative(summary.lastFetch)}</b>
@@ -620,11 +641,25 @@ export default function SourcesPage() {
           loading={tableLoading}
           dataSource={tableLoading ? [] : visibleSources}
           columns={columns}
+          locale={{
+            emptyText: (
+              <div className="src-empty">
+                <div className="src-empty-title">
+                  {rows.length === 0 ? '信源池还是空的' : '没有匹配当前筛选的信源'}
+                </div>
+                <div className="src-empty-hint">
+                  {rows.length === 0
+                    ? '从「推荐信源库」导入一组现成信源,或用「新建信源」手动添加'
+                    : '换个关键词,或把筛选切回「全部」'}
+                </div>
+              </div>
+            ),
+          }}
           rowClassName={(row) => `src-row is-${row.health}`}
           /* 固定布局 + 最小宽度:窄屏横向滚动,而不是把每列压到竖排换行。
              必须 fixed:auto 布局会按内容算列宽,数据一到列宽整体重排 → 横向抖动 */
           tableLayout="fixed"
-          scroll={{ x: 1200 }}
+          scroll={{ x: 900 }}
           pagination={{
             current: page,
             pageSize,
@@ -652,9 +687,53 @@ export default function SourcesPage() {
                 {row.source.last_error ? (
                   <div className="src-expand-error">最近错误:{row.source.last_error}</div>
                 ) : null}
-                <div className="src-muted">
-                  创建 {formatTime(row.source.created_at)} · 上次抓取{' '}
-                  {formatRelative(row.source.last_fetch_at)} · 采集类型 {row.source.collector_kind}
+                {/* 事实分格:窄屏收起的列在这里补全,一行一件事,不再用中点串成一句 */}
+                <div className="src-expand-facts">
+                  <span>
+                    渠道 <b>{CHANNEL_LABEL[row.source.channel] ?? row.source.channel}</b>
+                  </span>
+                  <span>
+                    状态 <b>{HEALTH_META[row.health].label}</b>
+                  </span>
+                  <span>
+                    30 天入库 <b>{row.stat?.ingested ?? 0}</b>
+                    <span className="src-muted">/ 候选 {row.stat?.candidates ?? 0}</span>
+                  </span>
+                  <span>
+                    创建 <b>{formatTime(row.source.created_at)}</b>
+                  </span>
+                  <span>
+                    上次抓取 <b>{formatRelative(row.source.last_fetch_at)}</b>
+                  </span>
+                  <span>
+                    采集类型 <b>{row.source.collector_kind}</b>
+                  </span>
+                </div>
+                {/* 窄屏没有 hover,行内只留「查看素材」;测试 / 编辑 / 删除放到展开行 */}
+                <div className="src-expand-actions">
+                  <Button
+                    size="small"
+                    icon={<ThunderboltOutlined />}
+                    loading={testMutation.isPending && testMutation.variables === row.source.id}
+                    onClick={() => testMutation.mutate(row.source.id)}
+                  >
+                    测试抓取
+                  </Button>
+                  <Button size="small" icon={<EditOutlined />} onClick={() => openEditor(row.source)}>
+                    编辑
+                  </Button>
+                  <Popconfirm
+                    title={`删除信源「${row.source.name}」?`}
+                    description="删除后不可恢复,已采集的素材不受影响。"
+                    okText="删除"
+                    cancelText="取消"
+                    okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
+                    onConfirm={() => deleteMutation.mutate(row.source.id)}
+                  >
+                    <Button size="small" danger icon={<DeleteOutlined />} disabled={deleteMutation.isPending}>
+                      删除
+                    </Button>
+                  </Popconfirm>
                 </div>
               </div>
             ),
@@ -815,7 +894,11 @@ export default function SourcesPage() {
             {
               title: '说明',
               dataIndex: 'description',
-              render: (value) => <span style={{ fontSize: 12, color: '#888' }}>{value}</span>,
+              render: (value) => (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {value}
+                </Typography.Text>
+              ),
             },
           ]}
         />
