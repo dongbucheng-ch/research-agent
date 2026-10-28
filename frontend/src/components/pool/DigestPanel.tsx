@@ -5,11 +5,9 @@ import {
   Card,
   Empty,
   Popconfirm,
-  Space,
-  Spin,
+  Skeleton,
   Tooltip,
   TreeSelect,
-  Typography,
   message,
 } from 'antd'
 import dayjs from 'dayjs'
@@ -46,11 +44,14 @@ function isTopic(digest: Digest): boolean {
   return digest.meta?.scope === 'topic'
 }
 
-/** 批次元信息:第 N 批 · 时间 · 条数(+ GitHub) */
-/** 树节点里的批次元信息:去掉 GitHub,给标题留出宽度 */
-function treeLeafMeta(digest: Digest, index: number): string {
-  const count = digest.meta?.news_count ?? digest.item_count
-  return `第 ${index} 批 · ${formatTime(digest.created_at).slice(11)} · ${count} 条`
+/** 批次时间戳(HH:mm):批次选择器的节点里用 */
+function digestTime(digest: Digest): string {
+  return formatTime(digest.created_at).slice(11)
+}
+
+/** 资讯条数:生成时的 news_count 优先,缺省回落到条目数 */
+function digestCount(digest: Digest): number {
+  return digest.meta?.news_count ?? digest.item_count
 }
 
 interface BatchInfo {
@@ -141,15 +142,17 @@ export default function DigestPanel({ focusId, onSelect }: Props) {
           const batch = batchOf(digest)
           return {
             value: digest.id,
-            label: `${groupLabel(group.date)} · 第 ${batch.index} 批 · ${digest.title}`,
+            label: `${digest.title}(第 ${batch.index} 批)`,
             title: (
               <span className="output-tree-leaf">
                 <span className="output-tree-leaf-title" title={digest.title}>
                   {digest.title}
                 </span>
                 <span className="output-tree-leaf-meta">
-                  {treeLeafMeta(digest, batch.index)}
-                  {isTopic(digest) ? ' · 定向' : ''}
+                  <span className="output-tree-leaf-batch measured">{`第 ${batch.index} 批`}</span>
+                  <span className="output-tree-leaf-time measured">{digestTime(digest)}</span>
+                  <span className="output-tree-leaf-count measured">{`${digestCount(digest)} 条`}</span>
+                  {isTopic(digest) ? <span className="output-tree-leaf-scope">定向</span> : null}
                 </span>
               </span>
             ),
@@ -258,17 +261,42 @@ export default function DigestPanel({ focusId, onSelect }: Props) {
   }
 
   return (
-    <div>
+    <div className="output-screen digest-screen">
       {isLoading ? (
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <Spin />
+        /* 加载态按「即将出现的形状」给骨架:左边卡是封面 + 正文,右边是素材来源 */
+        <div className="output-detail" aria-busy="true" aria-label="日报加载中">
+          <Card size="small" className="output-card output-skeleton-card">
+            <div className="output-skeleton-head">
+              <Skeleton.Input active size="small" block />
+            </div>
+            <div className="output-skeleton-body">
+              <Skeleton active title={{ width: '38%' }} paragraph={{ rows: 4 }} />
+            </div>
+          </Card>
+          <aside className="output-detail-rail">
+            <section className="output-rail-section">
+              <Skeleton active title={{ width: '46%' }} paragraph={{ rows: 5 }} />
+            </section>
+          </aside>
         </div>
       ) : digests.length === 0 ? (
-        <Empty description="还没有日报" style={{ padding: 60 }}>
-          <Button type="primary" onClick={() => setOpen(true)}>
-            生成日报
-          </Button>
-        </Empty>
+        <Card size="small" className="output-card">
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+              <div className="output-empty-copy">
+                <div className="output-empty-title">还没有日报</div>
+                <div className="output-empty-hint">
+                  选好方向与时间窗口后,生成任务完成时会出现在这里。
+                </div>
+              </div>
+            }
+          >
+            <Button type="primary" onClick={() => setOpen(true)}>
+              生成日报
+            </Button>
+          </Empty>
+        </Card>
       ) : current ? (
         /* 两张平级卡片:左=日报内容(内容列居中),右=素材来源 + 推送 */
         <div className="output-detail">
@@ -301,8 +329,7 @@ export default function DigestPanel({ focusId, onSelect }: Props) {
                   // 数据量小(≤30 条),关虚拟滚动可保证深链时日期分组头一起渲染
                   virtual={false}
                   popupMatchSelectWidth={600}
-                  popupClassName="output-tree-popup"
-                  style={{ width: 360 }}
+                  popupClassName="output-tree-popup output-tree-stacked"
                 />
                 <div className="output-card-head-actions">
                   <OutputToolbar
@@ -325,7 +352,7 @@ export default function DigestPanel({ focusId, onSelect }: Props) {
                   >
                     <Tooltip title="删除日报">
                       <Button
-                        className="icon-btn"
+                        className="icon-btn is-danger"
                         icon={<DeleteOutlined />}
                         aria-label="删除日报"
                         disabled={deleteMutation.isPending}
@@ -345,6 +372,8 @@ export default function DigestPanel({ focusId, onSelect }: Props) {
             items={materials ?? []}
             citations={citations}
             resetKey={currentId}
+            loading={materialsLoading}
+            variant="trail"
             activeItemId={materialItemId}
             onOpenItem={setMaterialItemId}
             onEnsurePreview={ensurePreview}

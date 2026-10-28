@@ -1,5 +1,5 @@
 import { LinkOutlined, RightOutlined, UnorderedListOutlined, UpOutlined } from '@ant-design/icons'
-import { Button, List, Tooltip } from 'antd'
+import { Button, List, Skeleton, Tooltip } from 'antd'
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -29,6 +29,13 @@ export function materialMeta(item: Item): string {
   const source = item.source_name ?? item.channel
   const date = item.published_at ?? item.first_seen_at
   return date ? `${source} · ${dayjs(date).format('M月D日')}` : source
+}
+
+/** 来源与日期拆成两格(trail 版式:来源靠左可截断,日期右对齐成时间列),不再拼成一句中点串 */
+export function materialMetaParts(item: Item): { source: string; date: string | null } {
+  const source = item.source_name ?? item.channel
+  const date = item.published_at ?? item.first_seen_at
+  return { source, date: date ? dayjs(date).format('M月D日') : null }
 }
 
 export function materialTitle(item: Item): string {
@@ -117,6 +124,10 @@ interface Props {
   /** 素材列表上方的模块:推送记录、关键词等 */
   top?: ReactNode
   emptyText?: string
+  /** 加载态:按即将出现的形状给骨架行,避免先闪一次「暂无素材」 */
+  loading?: boolean
+  /** trail=产出物页的「素材轨」版式(日报与文章共用):来源与日期分两格,日期右对齐 */
+  variant?: 'rail' | 'trail'
 }
 
 /**
@@ -132,8 +143,11 @@ export default function OutputRail({
   onEnsurePreview,
   top,
   emptyText = '这条产出物没有关联到素材记录',
+  loading = false,
+  variant = 'rail',
 }: Props) {
   const [railExpanded, setRailExpanded] = useState(false)
+  const trail = variant === 'trail'
 
   // 切换产出物后回到「只列前 N 条」
   useEffect(() => {
@@ -181,14 +195,23 @@ export default function OutputRail({
         <div className="output-rail-divider" />
         <div className="output-rail-title">
           素材来源
-          <span className="output-rail-count">({total} 条)</span>
+          {loading ? null : <span className="output-rail-count">({total} 条)</span>}
         </div>
         <div className="output-rail-list">
           <List
             size="small"
             split={false}
             dataSource={rows}
-            locale={{ emptyText }}
+            /* 素材还在路上:空位给骨架行,不再先闪一次「暂无素材」 */
+            locale={{
+              emptyText: loading ? (
+                <div className="output-rail-loading" aria-busy="true" aria-label="素材加载中">
+                  <Skeleton active title={false} paragraph={{ rows: 5 }} />
+                </div>
+              ) : (
+                emptyText
+              ),
+            }}
             renderItem={(row) => {
               if (row.kind === 'group') {
                 return (
@@ -204,6 +227,24 @@ export default function OutputRail({
                 )
               }
               const cite = citations?.get(row.item.id)
+              const score = (
+                <span
+                  className={`output-rail-item-score is-${scoreColor(row.item.score?.total)}`}
+                >
+                  {row.item.score?.total ?? '-'}
+                </span>
+              )
+              const parts = trail ? materialMetaParts(row.item) : null
+              const meta = parts ? (
+                <>
+                  <span className="output-rail-item-source">{parts.source}</span>
+                  {parts.date ? (
+                    <span className="output-rail-item-date measured">{parts.date}</span>
+                  ) : null}
+                </>
+              ) : (
+                <span className="output-rail-item-source">{materialMeta(row.item)}</span>
+              )
               return (
                 <List.Item
                   key={row.key}
@@ -241,12 +282,8 @@ export default function OutputRail({
                       <RightOutlined className="output-rail-item-arrow" />
                     </div>
                     <div className="output-rail-item-meta">
-                      <span
-                        className={`output-rail-item-score is-${scoreColor(row.item.score?.total)}`}
-                      >
-                        {row.item.score?.total ?? '-'}
-                      </span>
-                      <span className="output-rail-item-source">{materialMeta(row.item)}</span>
+                      {score}
+                      {meta}
                     </div>
                   </div>
                 </List.Item>
@@ -254,20 +291,26 @@ export default function OutputRail({
             }}
           />
         </div>
-        {hidden > 0 || railExpanded ? (
+        {!loading && (hidden > 0 || railExpanded) ? (
           <Button
             type="text"
             block
             className="rail-more-btn"
             onClick={() => setRailExpanded((value) => !value)}
           >
-            <span className="rail-more-inner">
-              <UnorderedListOutlined />
+            {trail ? (
               <span className="rail-more-text">
-                {railExpanded ? '收起' : `还有 ${hidden} 条 · 展开`}
+                {railExpanded ? '收起' : `展开其余 ${hidden} 条`}
               </span>
-              {railExpanded ? <UpOutlined /> : <RightOutlined />}
-            </span>
+            ) : (
+              <span className="rail-more-inner">
+                <UnorderedListOutlined />
+                <span className="rail-more-text">
+                  {railExpanded ? '收起' : `还有 ${hidden} 条 · 展开`}
+                </span>
+                {railExpanded ? <UpOutlined /> : <RightOutlined />}
+              </span>
+            )}
           </Button>
         ) : null}
       </section>

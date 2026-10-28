@@ -10,6 +10,7 @@ import {
   Modal,
   Popconfirm,
   Select,
+  Skeleton,
   Space,
   Spin,
   Tooltip,
@@ -21,7 +22,7 @@ import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, toQuery } from '../../api/client'
 import type { Article, Item, Page, PushChannel } from '../../api/types'
-import { formatTime } from '../../utils'
+import { dayLabel, formatTime } from '../../utils'
 import ItemDetailDrawer from '../ItemDetailDrawer'
 import PushSection from '../PushSection'
 import OutputViewer, { OutputToolbar, useOutputMode } from './OutputViewer'
@@ -44,15 +45,6 @@ interface Props {
   focusId?: number | null
   /** 选择变更回写 URL:刷新、分享、后退都能回到同一条 */
   onSelect?: (id: number | null) => void
-}
-
-/** 日期文案:最近用相对时间,更早用日期,跨年补全年份 */
-function groupLabel(date: string): string {
-  const day = dayjs(date)
-  const today = dayjs().startOf('day')
-  if (day.isSame(today, 'day')) return '今天'
-  if (day.isSame(today.subtract(1, 'day'), 'day')) return '昨天'
-  return day.year() === today.year() ? day.format('MM-DD') : day.format('YYYY-MM-DD')
 }
 
 export default function ArticlePanel({ focusId, onSelect }: Props) {
@@ -113,22 +105,30 @@ export default function ArticlePanel({ focusId, onSelect }: Props) {
         selectable: false,
         title: (
           <span className="output-tree-date">
-            <span>{groupLabel(group.date)}</span>
+            <span>{dayLabel(group.date)}</span>
             <span className="output-tree-date-meta">{group.items.length} 篇</span>
           </span>
         ),
         children: group.items.map((article) => ({
           value: article.id,
-          label: `${groupLabel(group.date)} · ${article.title}`,
+          label: article.title,
           title: (
             <span className="output-tree-leaf">
               <span className="output-tree-leaf-title" title={article.title}>
                 {article.title}
               </span>
               <span className="output-tree-leaf-meta">
-                {formatTime(article.created_at).slice(11)}
-                {article.meta?.char_count ? ` · ${article.meta.char_count} 字` : ''}
-                {` · 素材 ${article.meta?.kept ?? article.source_item_ids.length}`}
+                <span className="output-tree-leaf-time measured">
+                  {formatTime(article.created_at).slice(11)}
+                </span>
+                {article.meta?.char_count ? (
+                  <span className="output-tree-leaf-count measured">
+                    {`${article.meta.char_count} 字`}
+                  </span>
+                ) : null}
+                <span className="output-tree-leaf-count measured">
+                  {`素材 ${article.meta?.kept ?? article.source_item_ids.length}`}
+                </span>
               </span>
             </span>
           ),
@@ -267,24 +267,48 @@ export default function ArticlePanel({ focusId, onSelect }: Props) {
   }, [current, materials])
 
   return (
-    <div>
+    <div className="output-screen article-screen">
       {isLoading ? (
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <Spin />
+        /* 加载态按「即将出现的形状」给骨架:左边卡是封面 + 正文,右边是素材来源 */
+        <div className="output-detail" aria-busy="true" aria-label="文章加载中">
+          <Card size="small" className="output-card output-skeleton-card">
+            <div className="output-skeleton-head">
+              <Skeleton.Input active size="small" block />
+            </div>
+            <div className="output-skeleton-body">
+              <Skeleton active title={{ width: '38%' }} paragraph={{ rows: 4 }} />
+            </div>
+          </Card>
+          <aside className="output-detail-rail">
+            <section className="output-rail-section">
+              <Skeleton active title={{ width: '46%' }} paragraph={{ rows: 5 }} />
+            </section>
+          </aside>
         </div>
       ) : articles.length === 0 ? (
-        <Empty
-          description={watching ? '文章生成中,完成后自动出现在这里…' : '还没有文章'}
-          style={{ padding: 60 }}
-        >
-          {watching ? (
-            <Spin />
-          ) : (
-            <Button type="primary" onClick={() => setOpen(true)}>
-              生成文章
-            </Button>
-          )}
-        </Empty>
+        <Card size="small" className="output-card">
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+              <div className="output-empty-copy">
+                <div className="output-empty-title">{watching ? '文章生成中' : '还没有文章'}</div>
+                <div className="output-empty-hint">
+                  {watching
+                    ? '约需 2-5 分钟,完成后会自动出现在这里。'
+                    : '选好方向与时间窗口后,生成任务完成时会出现在这里。'}
+                </div>
+              </div>
+            }
+          >
+            {watching ? (
+              <Spin />
+            ) : (
+              <Button type="primary" onClick={() => setOpen(true)}>
+                生成文章
+              </Button>
+            )}
+          </Empty>
+        </Card>
       ) : current ? (
         /* 两张平级卡片:左=文章内容(内容列居中),右=元信息 + 推送 + 素材来源 */
         <div className="output-detail">
@@ -317,8 +341,7 @@ export default function ArticlePanel({ focusId, onSelect }: Props) {
                   // 数据量小(≤30 条),关虚拟滚动可保证深链时日期分组头一起渲染
                   virtual={false}
                   popupMatchSelectWidth={600}
-                  popupClassName="output-tree-popup"
-                  style={{ width: 360 }}
+                  popupClassName="output-tree-popup output-tree-stacked"
                 />
                 <div className="output-card-head-actions">
                   <OutputToolbar
@@ -349,7 +372,7 @@ export default function ArticlePanel({ focusId, onSelect }: Props) {
                   >
                     <Tooltip title="删除文章">
                       <Button
-                        className="icon-btn"
+                        className="icon-btn is-danger"
                         icon={<DeleteOutlined />}
                         aria-label="删除文章"
                         disabled={deleteMutation.isPending}
@@ -379,6 +402,8 @@ export default function ArticlePanel({ focusId, onSelect }: Props) {
             items={materials ?? []}
             citations={citations}
             resetKey={currentId}
+            loading={materialsLoading}
+            variant="trail"
             activeItemId={materialItemId}
             onOpenItem={setMaterialItemId}
             onEnsurePreview={ensurePreview}

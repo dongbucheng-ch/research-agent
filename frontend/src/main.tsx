@@ -6,6 +6,8 @@ import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import App from './App'
 import './styles.css'
+// 产出物屏幕(日报 / 文章)的增量样式:必须排在 styles.css 之后,同优先级的选择器才能正常覆盖
+import './output-screens.css'
 // 素材池的增量样式:同样排在 styles.css 之后
 import './material-screen.css'
 

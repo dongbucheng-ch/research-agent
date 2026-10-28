@@ -1,0 +1,150 @@
+/* Hallmark · checked: 2026-10-28 · genre: modern-minimal (inferred) · shape: app screen · scope: 日报 + 文章(/pool?tab=digest|article)
+ * compat: AntD 5 + .pool-page 的 --pp-* 令牌与系统字体;不引第二套主题,不改调色板、圆角、投影与外壳
+ * fixed: 素材轨来源与日期分格 + 加载骨架、批次/文章选择器两行节点、生成中/空态、封面去容器、删除按钮危险态、窄屏头部折行
+ * built: the project · redesign: polish · v2.0.0 */
+
+/* 这一层只做「结构增量」:每条规则都限定在 .pool-page .output-screen 内(日报与文章共用同一个根类,
+   各自另有 .digest-screen / .article-screen 备用),素材页、外壳不受影响。
+   选择器的下拉被 portal 到 body,不在 .pool-page 里,单独用 .output-tree-stacked 限定。 */
+
+/* ── 封面不做容器:去掉描边、圆角与右上角的淡蓝渐变 ─────────────────
+   标题与导语直接落在卡片上,和正文同一块纸面。 */
+.pool-page .output-screen .digest-hero {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+/* 窄屏标题折行时,日期整段下移,不从中间断开(2026- / 10-26) */
+.pool-page .output-screen .digest-hero .digest-title-date {
+  white-space: nowrap;
+}
+/* 批次、时间、条数用等宽数字:切换产出物时数字不左右跳动 */
+.pool-page .output-screen .measured {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 正文里的长链接(素材清单常拿仓库名、URL 当标题)在窄屏要能断行,不把页面顶出横向滚动 */
+.pool-page .output-screen .output-preview a {
+  overflow-wrap: anywhere;
+}
+
+/* ── 卡片头:焦点环与按压反馈(沿用项目其它区域的 2px 实心焦点环约定) ── */
+.pool-page .output-screen .output-card-head-actions .ant-btn.icon-btn:focus-visible,
+.pool-page .output-screen .output-card-head-actions .ant-switch:focus-visible {
+  outline: 2px solid var(--pp-accent);
+  outline-offset: 1px;
+}
+.pool-page .output-screen .output-card-head-actions .ant-btn.icon-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+/* 删除按钮:静止态中性,hover/聚焦才露红,不与生成、复制争注意力 */
+.pool-page .output-screen .output-card-head-actions .ant-btn.icon-btn.is-danger:not(:disabled):hover {
+  border-color: var(--pp-danger);
+  color: var(--pp-danger);
+}
+.pool-page .output-screen .output-card-head-actions .ant-btn.icon-btn.is-danger:focus-visible {
+  outline: 2px solid var(--pp-danger);
+  outline-offset: 1px;
+}
+
+/* ── 素材轨:来源与日期分格 ───────────────────────────────────────
+   来源靠左可截断,日期靠右、等宽数字,整列日期对齐成一条「时间轴」;分数沿用既有位置与配色。 */
+.pool-page .output-screen .output-rail-item-source {
+  flex: 1 1 auto;
+}
+.pool-page .output-screen .output-rail-item-date {
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--pp-text-3);
+  font-variant-numeric: tabular-nums;
+}
+/* 素材还在路上时给骨架行,不再先闪一次「暂无素材」 */
+.pool-page .output-screen .output-rail-loading {
+  padding-top: 8px;
+}
+
+/* ── 生成中:按即将出现的形状占位(左=封面 + 正文,右=素材轨) ───── */
+.pool-page .output-screen .output-skeleton-card .ant-card-body {
+  padding: 24px;
+}
+.pool-page .output-screen .output-skeleton-head,
+.pool-page .output-screen .output-skeleton-body {
+  max-width: var(--pp-measure);
+  margin-inline: auto;
+}
+.pool-page .output-screen .output-skeleton-head {
+  margin-bottom: 32px;
+}
+
+/* ── 空态:一句话说清「这里会出现什么、怎么让它出现」 ───────────── */
+.pool-page .output-screen .output-card .ant-empty {
+  margin-block: 56px;
+}
+.pool-page .output-screen .output-empty-copy {
+  max-width: 34em;
+  margin-inline: auto;
+}
+.pool-page .output-screen .output-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pp-text-1);
+}
+.pool-page .output-screen .output-empty-hint {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--pp-text-3);
+}
+
+/* ── 日期/批次选择器下拉:每行两行结构(标题 / 时间 · 条数 · 范围) ──
+   原先把这些拼成一行,标题只能截断到很窄;拆成两行后标题拿到整行宽度。 */
+.output-tree-popup.output-tree-stacked.ant-select-dropdown {
+  /* 下拉固定 600px 宽,窄屏会顶出视口:按视口收边 */
+  max-width: calc(100vw - 24px);
+}
+.output-tree-popup.output-tree-stacked .ant-select-tree-node-content-wrapper {
+  display: block;
+  padding-block: 8px;
+}
+.output-tree-popup.output-tree-stacked .output-tree-leaf {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.output-tree-popup.output-tree-stacked .output-tree-leaf-title {
+  flex: none;
+  font-size: 14px;
+}
+.output-tree-popup.output-tree-stacked .output-tree-leaf-meta {
+  display: flex;
+  gap: 8px;
+}
+/* 「定向」是范围的标记:中性灰药丸(和右栏关键词胶囊同一档),颜色跟随元信息文字,不引新色 */
+.output-tree-popup.output-tree-stacked .output-tree-leaf-scope {
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  line-height: 16px;
+}
+
+/* ── 窄屏:卡片头一行放不下「选择器 + 开关 + 图标按钮」────────────────
+   让选择器独占一行,操作落到第二行右对齐,页面不再横向滚动。 */
+@media (max-width: 480px) {
+  /* 手机:卡片头内边距减半,选择器与操作区多出 24px,375 宽时操作一行放得下 */
+  .pool-page .output-screen .output-card .ant-card-head {
+    padding-inline: 12px;
+  }
+  .pool-page .output-screen .output-card-head-row {
+    flex-wrap: wrap;
+  }
+  .pool-page .output-screen .output-card-head-row .output-tree-select {
+    flex: 1 1 100%;
+  }
+  /* 操作区限宽换行:320 宽时「开关 + 三个图标」一行放不下,在行内折行,不再把页面顶出横向滚动 */
+  .pool-page .output-screen .output-card-head-actions {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
