@@ -58,6 +58,15 @@ export function formatRelative(value?: string | null): string {
   return `${Math.floor(hours / 24)} 天前`
 }
 
+/** 日期分组头:今天/昨天/MM-DD(跨年补全年份);产出物选择器与素材分组共用一套说法 */
+export function dayLabel(date: string): string {
+  const day = dayjs(date)
+  const today = dayjs().startOf('day')
+  if (day.isSame(today, 'day')) return '今天'
+  if (day.isSame(today.subtract(1, 'day'), 'day')) return '昨天'
+  return day.year() === today.year() ? day.format('MM-DD') : day.format('YYYY-MM-DD')
+}
+
 export const CONTENT_TYPE_META: Record<string, { label: string; color: string }> = {
   paper: { label: '论文', color: 'purple' },
   tech: { label: '技术', color: 'blue' },

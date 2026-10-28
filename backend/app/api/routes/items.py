@@ -186,6 +186,15 @@ async def list_items(
         stmt = stmt.order_by(Item.published_at.desc().nullslast(), Item.id.desc())
     elif sort == "recent":
         stmt = stmt.order_by(Item.first_seen_at.desc(), Item.id.desc())
+    elif sort == "smart":
+        # 最新高分:先按收录日倒序(库会话时区,已设为 Asia/Shanghai),
+        # 同一天内综合分高的在前,再以收录时间与 id 兜底,翻页时顺序稳定。
+        stmt = stmt.order_by(
+            func.date(Item.first_seen_at).desc(),
+            ItemScore.total.desc(),
+            Item.first_seen_at.desc(),
+            Item.id.desc(),
+        )
     else:
         stmt = stmt.order_by(ItemScore.total.desc(), Item.id.desc())
     items = list(await session.scalars(stmt.offset((page - 1) * page_size).limit(page_size)))

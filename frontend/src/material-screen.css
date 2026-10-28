@@ -1,0 +1,237 @@
+/* Hallmark · checked: 2026-10-28 · genre: modern-minimal (inferred) · shape: app screen · scope: 素材池(/pool?tab=material)
+ * compat: AntD 5 + .mat-page 的 --mat-* 局部令牌与系统字体;不引第二套主题,不改调色板、圆角、投影与外壳
+ * fixed: 卡片元信息两格(左事实 / 右分数 + 等宽时间)、分数常驻且只标低分、按收录日的分组头、标题与摘要不再截断、
+ *        加载骨架、空态说明、工具条常驻排序与计数分格、焦点环、窄屏工具条折行 + 整页自然滚动
+ * built: the project · redesign: polish · v2.0.0 */
+
+/* Hallmark · dropped onChange={(value) => patchParams({ sort: value })}, onClick={(event) => { event.stopPropagation() openDetail() }} · 排序下拉从筛选 Popover 移到工具条常驻并复位页码,详情按钮改由卡片项级 setActiveItemId 触发 */
+/* Hallmark · dropped 44%, 20%, 60%, $7 · 默认排序改为「最新高分」后首屏是当天收录的卡片,这几个数字仍在「按综合分」首屏的摘要里 */
+
+/* 这一层只做「结构增量」:所有规则限定在 .pool-page .mat-page 内,外壳、产出物页、设置页不受影响。 */
+
+/* ── 卡片元信息:两格 ────────────────────────────────────────────
+   左边是读得出的「类型 / 来源 / 作者」,右边是排序依据(综合分 + 时间),右对齐、等宽数字:
+   整屏扫下来分数与时间各成一列。原来的中点串把四件事连成一句话,既难扫也不便对齐。 */
+.pool-page .mat-page .mat-meta {
+  justify-content: space-between;
+  gap: 12px;
+}
+.pool-page .mat-page .mat-meta-facts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.pool-page .mat-page .mat-source {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pool-page .mat-page .mat-meta-right {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+/* 分数常驻:默认安静(与来源同灰),只有低于门槛才变红。排序按分数走,数字必须在场才能核对顺序 */
+.pool-page .mat-page .mat-score,
+.pool-page .mat-page .mat-time {
+  font-variant-numeric: tabular-nums;
+}
+.pool-page .mat-page .mat-score {
+  min-width: 4ch;
+  text-align: right;
+  color: var(--mat-text-2);
+  font-weight: 600;
+}
+.pool-page .mat-page .mat-score.is-low {
+  color: var(--pp-danger);
+}
+/* 新鲜度不再单独上色:默认排序下第一屏几乎都是 72 小时内的条目,
+   整列蓝字只会和分数抢注意力;「4 小时前」「今天」这些字本身已经把新鲜说清楚了。 */
+.pool-page .mat-page .mat-time.is-fresh {
+  color: var(--mat-text-3);
+  font-weight: 400;
+}
+
+/* 标题与摘要完整显示:截断会让「只看半句」成为常态,也让同一行的卡片高度由截断值而不是内容决定 */
+.pool-page .mat-page .mat-title {
+  display: block;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.pool-page .mat-page .mat-summary {
+  display: block;
+  overflow: visible;
+  max-width: 68ch;
+}
+
+/* ── 卡片流:按列排的多列墙 ──────────────────────────────────────
+   一列一列地读:列内自上而下,读完第一列接第二列。卡片多高就多高,
+   不再按行等高——同一行两张卡长短不一时,短的那张不会拖出一段空白。
+   列宽交给浏览器在 500–620 之间定:再窄,摘要断行太密;再宽,一行超出扫读区间。
+   (grid 的 auto-fill 在 minmax 带上限时按上限算列数,填不满宽度;这里要的是「按列」,用 column。)
+   列数按内容区宽度分三档:一列 620 封顶、两列 1252、三列 1884(3 × 620 + 两道 12 的列缝),
+   再宽也只是留白。用 container 而不是 viewport:侧栏收放改变的是内容区,列数要跟着内容区走。 */
+.pool-page .mat-page .mat-body {
+  container-type: inline-size;
+}
+.pool-page .mat-page .mat-grid {
+  display: block;
+  column-width: 500px;
+  column-gap: 12px;
+  max-width: 620px;
+  margin-inline: auto;
+}
+.pool-page .mat-page .mat-grid > .mat-card,
+.pool-page .mat-page .mat-grid > .mat-day {
+  break-inside: avoid;
+}
+.pool-page .mat-page .mat-grid > .mat-card {
+  margin-bottom: 12px;
+}
+/* 两列 / 三列的分界:1024 = 2 × 500 + 列缝,1524 = 3 × 500 + 两道列缝 */
+@container (width >= 1024px) {
+  .pool-page .mat-page .mat-grid {
+    max-width: 1252px;
+  }
+}
+@container (width >= 1524px) {
+  .pool-page .mat-page .mat-grid {
+    max-width: 1884px;
+  }
+}
+
+/* ── 分组头:按收录日分段 ───────────────────────────────────────
+   与「最新高分」同一把尺子(今天 / 昨天 / 日期),右侧拉一条细线到行尾,像时间轴上的刻度。
+   column-span: all 让日期横跨整面墙,三列从同一条线开始,而不是只压在第一列顶上。 */
+.pool-page .mat-page .mat-day {
+  column-span: all;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  font-size: 12.5px;
+  color: var(--mat-text-3);
+}
+.pool-page .mat-page .mat-day::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--mat-border);
+}
+
+/* ── 生成中:和真实卡片同形的骨架 ─────────────────────────────── */
+.pool-page .mat-page .mat-skeleton-card {
+  pointer-events: none;
+  box-shadow: none;
+}
+
+/* ── 空态:一句话说清「为什么空、怎么让它不空」 ─────────────── */
+.pool-page .mat-page .mat-body .ant-empty {
+  margin-block: 56px;
+}
+.pool-page .mat-page .mat-empty-copy {
+  max-width: 34em;
+  margin-inline: auto;
+}
+.pool-page .mat-page .mat-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mat-text-1);
+}
+.pool-page .mat-page .mat-empty-hint {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--mat-text-3);
+}
+
+/* ── 工具条:排序常驻 + 计数分格 ───────────────────────────────── */
+.pool-page .mat-page .mat-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pool-page .mat-page .mat-sort-label {
+  font-size: 12.5px;
+  color: var(--mat-text-3);
+}
+.pool-page .mat-page .mat-sort-select {
+  width: 118px;
+}
+.pool-page .mat-page .mat-count-cells {
+  display: inline-flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* 分页条:桌面这层壳里本就常驻在列表下方(列表自己滚),写成 sticky 是把它的事实说清楚,
+   也让长列表的最后一屏文字与分页条各自站住;窄屏整页滚动时再放回文档流(见上面的媒体查询)。 */
+.pool-page .mat-page .mat-footer {
+  position: sticky;
+  bottom: 0;
+}
+
+/* ── 焦点环与字段边界:沿用项目其它区域的 2px 实心约定 ─────────────
+   AntD 自带的浅蓝环(#91caff)在白底上只有 1.6:1,键盘走到「引擎」分段或排序下拉时看不出焦点,
+   这里换成本项目其它区域同一枚 --mat-accent 实心环。 */
+.pool-page .mat-page .ant-segmented:focus-within,
+.pool-page .mat-page .ant-segmented-item-focused,
+.pool-page .mat-page .ant-select:focus-within,
+.pool-page .mat-page .ant-btn:focus-visible,
+.pool-page .mat-page .ant-input-affix-wrapper:focus-within {
+  outline: 2px solid var(--mat-accent);
+  outline-offset: 1px;
+}
+/* 搜索框的框线单独深一档:白底上 1px 的 #d9d9d9 只有 1.41:1,够不到非文本 3:1,
+   而搜索框不像按钮那样有填充色或文字可以认出自己。用本屏既有的次级墨色,不改主题。 */
+.pool-page .mat-page .mat-search.ant-input-search .ant-input-affix-wrapper {
+  border-color: var(--mat-text-3);
+}
+
+/* ── 窄屏(≤640):整页自然滚动,工具条折行 ─────────────────────
+   工作台式的「列表区自己滚动」在手机上会被常驻工具条与分页吃掉半屏;这里放行整页滚动,
+   引擎整行(过宽时行内横滑)、搜索整行、排序与筛选一行、计数一行。 */
+@media (max-width: 640px) {
+  .pool-page .mat-page {
+    height: auto;
+  }
+  .pool-page .mat-page .mat-body {
+    overflow: visible;
+  }
+  .pool-page .mat-page .mat-footer {
+    position: static;
+  }
+  .pool-page .mat-page .mat-engine.ant-segmented {
+    flex: 1 1 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  /* 四段标签在 375 宽只差几十像素:字号与内边距各收一点,整行放下,避免边缘被切掉的「G」 */
+  .pool-page .mat-page .mat-engine.ant-segmented {
+    font-size: 13px;
+  }
+  .pool-page .mat-page .mat-engine .ant-segmented-item-label {
+    padding-inline: 4px;
+  }
+  .pool-page .mat-page .mat-search.ant-input-search {
+    flex: 1 1 100%;
+    width: auto;
+  }
+  .pool-page .mat-page .mat-sort {
+    flex: 0 1 auto;
+  }
+  .pool-page .mat-page .mat-sort-select {
+    width: 100px;
+  }
+  .pool-page .mat-page .mat-count.ant-typography {
+    min-width: 0;
+    text-align: left;
+  }
+  .pool-page .mat-page .mat-count-cells {
+    gap: 8px;
+  }
+}
