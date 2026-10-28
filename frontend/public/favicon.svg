@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="研讯平台">
+  <rect width="64" height="64" rx="14" fill="#1677ff" />
+  <g
+    transform="translate(32 32) scale(2.7) translate(-10 -10)"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="1.6"
+    stroke-linecap="round"
+  >
+    <path d="M4.6 4.6a7.6 7.6 0 0 0 0 10.8" />
+    <path d="M15.4 4.6a7.6 7.6 0 0 1 0 10.8" />
+    <path d="M7.35 7.35a3.8 3.8 0 0 0 0 5.3" />
+    <path d="M12.65 7.35a3.8 3.8 0 0 1 0 5.3" />
+  </g>
+  <circle cx="32" cy="32" r="5.9" fill="#ffffff" />
+</svg>

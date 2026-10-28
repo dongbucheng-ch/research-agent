@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -24,6 +25,23 @@ logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
+
+# .ico 不在 Python 内置 mime 表中，缺 mime db 的系统会把它识别成 text/plain
+mimetypes.add_type("image/x-icon", ".ico")
+
+
+def resolve_frontend_file(full_path: str) -> Path | None:
+    """把 dist 根目录下的真实文件（favicon、robots.txt 等）当作静态文件返回。
+
+    其余路径返回 None，由 SPA 兜底渲染 index.html；越出 dist 的路径一律拒绝。
+    """
+    if not full_path:
+        return None
+    root = FRONTEND_DIST.resolve()
+    candidate = (root / full_path).resolve()
+    if not candidate.is_relative_to(root) or not candidate.is_file():
+        return None
+    return candidate
 
 
 def create_app() -> FastAPI:
@@ -81,6 +99,9 @@ def create_app() -> FastAPI:
             index = FRONTEND_DIST / "index.html"
             if not index.exists():
                 raise HTTPException(status_code=404, detail="frontend not built")
+            static_file = resolve_frontend_file(full_path)
+            if static_file is not None:
+                return FileResponse(static_file)
             return FileResponse(index)
 
     return app
